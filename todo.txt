@@ -1,0 +1,6 @@
+- appel LLM huggingface
+(- RAG vers des pdf)
+- mettre en place la bdd
+- faire la partie de parsing de réponse du LLM
+- plug le rag/llm à la bdd
+- streamlit
