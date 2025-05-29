@@ -1,4 +1,3 @@
-#%%
 import json
 from ollama import chat, ChatResponse
 import sqlite3
@@ -89,6 +88,34 @@ def insert_univers(univers, db_path='../database.db'):
     conn.commit()
     conn.close()
 
+def insert_cultures(cultures, db_path='../database.db', univers_id=None):
+    """
+    Insère une liste de factions dans la base de données SQLite.
+
+    :param cultures: liste de dictionnaires au format :
+        [
+            {"name": "Nom de la culture", "description": "Texte..."},
+            ...
+        ]
+    :param db_path: chemin vers le fichier .db
+    """
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    for culture in cultures:
+        name = culture.get('name', '').strip()
+        description = culture.get('description', '').strip()
+
+        if name:  # On ignore les entrées sans nom
+            cursor.execute('''
+                INSERT INTO culture (name, description, univers_id)
+                VALUES (?, ?, ?)
+            ''', (name, description, univers_id))
+
+    conn.commit()
+    conn.close()
+
+
 def get_univers_id(db_path='../database.db'):
     """
     Récupère l'ID du dernier univers inséré dans la base de données SQLite.
@@ -120,7 +147,9 @@ def is_valid_json(text):
 
 def ask_faction_extraction(response_content):
     system_prompt = """Tu es un expert en extraction de données structurées à partir de réponses de modèles de langage.
-        Tu dois extraire les factions d'un univers fictif. Le format de sortie doit être strictement un tableau JSON :
+        Tu dois extraire les factions d'un univers fictif. 
+        Tu dois fournir le nom des factions, et pour chacune une brève description, à partir des informations fournies dans le texte.
+        Le format de sortie doit être strictement un tableau JSON :
         [
           {
             "name": "Nom de la faction",
@@ -170,8 +199,9 @@ def ask_faction_extraction(response_content):
 
 def ask_location_extraction(response_content):
     system_prompt = """
-        Tu es un expert en extraction de lieux géographiques à partir de textes de fiction. Ton objectif est d'extraire UNIQUEMENT les lieux physiques ou géographiques (régions, villes, forêts, montagnes, déserts, marais, péninsules, etc.).
-    
+        Tu es un expert en extraction de lieux géographiques à partir de textes de fiction. 
+        Ton objectif est d'extraire UNIQUEMENT les lieux physiques ou géographiques (régions, villes, forêts, montagnes, déserts, marais, péninsules, etc.).
+        Tu dois fournir la nom du lieu, et une brève description de celui-ci, à partir des informations fournies dans le texte.
         Ignore les personnages, dieux, factions, ou autres entités non géographiques.
     
         Le format de sortie doit être STRICTEMENT un tableau JSON :
@@ -194,13 +224,13 @@ def ask_location_extraction(response_content):
     ])
 
     content = response.message.content.strip()
-    print("Réponse brute de l'LLM pour les lieux :", content)
+    # print("Réponse brute de l'LLM pour les lieux :", content)
     # Validation du JSON
     if is_valid_json(content):
         return json.loads(content)
     else:
         counter = 0
-        while not is_valid_json(content) or counter < 100:
+        while not is_valid_json(content) or counter < 10:
             counter += 1
             # Relance une deuxième fois avec un prompt explicite
             retry_prompt = f"""
@@ -247,7 +277,7 @@ def ask_univers_extraction(response_content):
     ])
 
     content = response.message.content.strip()
-    print("Réponse brute de l'LLM pour l'univers :", content)
+    # print("Réponse brute de l'LLM pour l'univers :", content)
     # Validation du JSON
     if is_valid_json(content):
         return json.loads(content)
@@ -278,33 +308,55 @@ def ask_univers_extraction(response_content):
                 return json.loads(retry_content)
 
 
+def ask_culture_extraction(response_content):
+    system_prompt = """Tu es un expert en extraction de données structurées à partir de réponses de modèles de langage.
+        Tu dois extraire les cultures d'un univers fictif. 
+        Des exemples de cultures seraient les religions, les philosophies, les modes de vie, les traditions, etc.
+        Par exemple la culture Orc, la culture Elfique, la culture des Nains, etc.
+        Attention, les cultures que tu trouves doivent correspondrent à celles présentes dans l'univers donné en input et de manière explicite, n'invente pas de cultures.
+        Le format de sortie doit être strictement un tableau JSON :
+        [
+          {
+            "name": "Nom de la culture",
+            "description": "Description"
+          }
+        ]
+        Si tu n’en trouves pas, retourne simplement []. Pas d'explication, pas de texte, seulement du JSON."""
 
-# %%
-response: ChatResponse = chat(model='llama3.2', messages=[
-    {
-        'role': 'user',
-        'content': "Crées moi un univers de fiction avec des trolls et des papillons géants. "
-    },
-])
-#%%
-response_content = response.message.content
-print("#############################################")# Récupération de la réponse brute
-print(response_content)
-# %%
-print("#############################################")
-to_test = ask_univers_extraction(response_content)
-print(to_test)
-#%%
-print(insert_univers(to_test))
-# %%
-univers_id = get_univers_id()
-print(univers_id)
-print("#############################################")
-# %%
-print(ask_faction_extraction(response_content))
-print("#############################################") # Affichage de la réponse formatée
-print(ask_location_extraction(response_content))
-print("#############################################")
+    user_prompt = f"Extrait les cultures de la réponse suivante :\n\n{response_content}"
 
-insert_factions(ask_faction_extraction(response_content), univers_id=univers_id)
-insert_location(ask_location_extraction(response_content), univers_id=univers_id)
+    response: ChatResponse = chat(model='llama3.2', messages=[
+        {'role': 'system', 'content': system_prompt},
+        {'role': 'user', 'content': user_prompt}
+    ])
+
+    content = response.message.content.strip()
+
+    # Validation du JSON
+    if is_valid_json(content):
+        return json.loads(content)
+    else:
+        counter = 0
+        while not is_valid_json(content) or counter < 100:
+            counter += 1
+            # Relance une deuxième fois avec un prompt explicite
+            retry_prompt = f"""
+                Tu n'as pas respecté le format JSON strict. Voici un rappel :
+                [
+                  {{
+                    "name": "Nom de la culture",
+                    "description": "Description"
+                  }}
+                ]
+                Pas de texte, pas de commentaire. Corrige la réponse suivante :
+
+                {content}
+                """
+
+            retry_response: ChatResponse = chat(model='llama3.2', messages=[
+                {'role': 'system', 'content': "Tu corriges des réponses LLM pour les rendre au bon format JSON."},
+                {'role': 'user', 'content': retry_prompt}
+            ])
+            retry_content = retry_response.message.content.strip()
+            if is_valid_json(retry_content):
+                return json.loads(retry_content)
