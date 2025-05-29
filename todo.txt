@@ -1,4 +1,4 @@
-- appel LLM huggingface
+- appel LLM huggingface (OK)
 (- RAG vers des pdf)
 - mettre en place la bdd
 - faire la partie de parsing de réponse du LLM
