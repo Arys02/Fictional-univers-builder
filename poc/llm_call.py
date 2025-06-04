@@ -3,7 +3,7 @@ from ollama import chat, ChatResponse
 import sqlite3
 
 
-def insert_factions(factions, db_path='../database.db', univers_id=None):
+def insert_factions(factions, db_path="../database.db", univers_id=None):
     """
     Insère une liste de factions dans la base de données SQLite.
 
@@ -18,19 +18,23 @@ def insert_factions(factions, db_path='../database.db', univers_id=None):
     cursor = conn.cursor()
 
     for faction in factions:
-        name = faction.get('name', '').strip()
-        description = faction.get('description', '').strip()
+        name = faction.get("name", "").strip()
+        description = faction.get("description", "").strip()
 
         if name:  # On ignore les entrées sans nom
-            cursor.execute('''
+            cursor.execute(
+                """
                 INSERT INTO faction (name, description, univers_id)
                 VALUES (?, ?, ?)
-            ''', (name, description, univers_id))
+            """,
+                (name, description, univers_id),
+            )
 
     conn.commit()
     conn.close()
 
-def insert_location(locations, db_path='../database.db', univers_id=None):
+
+def insert_location(locations, db_path="../database.db", univers_id=None):
     """
     Insère une liste de factions dans la base de données SQLite.
 
@@ -45,19 +49,23 @@ def insert_location(locations, db_path='../database.db', univers_id=None):
     cursor = conn.cursor()
 
     for location in locations:
-        name = location.get('name', '').strip()
-        description = location.get('description', '').strip()
+        name = location.get("name", "").strip()
+        description = location.get("description", "").strip()
 
         if name:  # On ignore les entrées sans nom
-            cursor.execute('''
+            cursor.execute(
+                """
                 INSERT INTO location (name, description, univers_id)
                 VALUES (?, ?, ?)
-            ''', (name, description, univers_id))
+            """,
+                (name, description, univers_id),
+            )
 
     conn.commit()
     conn.close()
 
-def insert_univers(univers, db_path='../database.db'):
+
+def insert_univers(univers, db_path="../database.db"):
     """
     Insère une liste de factions dans la base de données SQLite.
 
@@ -71,24 +79,31 @@ def insert_univers(univers, db_path='../database.db'):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    name = univers[0].get('name', '').strip()
-    description = univers[0].get('description', '').strip()
+    name = univers[0].get("name", "").strip()
+    description = univers[0].get("description", "").strip()
 
     if name:  # On ignore les entrées sans nom
-        cursor.execute('''
+        cursor.execute(
+            """
             INSERT INTO univers (name, description)
             VALUES (?, ?)
-        ''', (name, description))
+        """,
+            (name, description),
+        )
     else:
-        cursor.execute('''
+        cursor.execute(
+            """
         INSERT INTO univers (name, description)
         VALUES (?, ?)
-        ''', ('?', description))
+        """,
+            ("?", description),
+        )
 
     conn.commit()
     conn.close()
 
-def insert_cultures(cultures, db_path='../database.db', univers_id=None):
+
+def insert_cultures(cultures, db_path="../database.db", univers_id=None):
     """
     Insère une liste de factions dans la base de données SQLite.
 
@@ -103,20 +118,23 @@ def insert_cultures(cultures, db_path='../database.db', univers_id=None):
     cursor = conn.cursor()
 
     for culture in cultures:
-        name = culture.get('name', '').strip()
-        description = culture.get('description', '').strip()
+        name = culture.get("name", "").strip()
+        description = culture.get("description", "").strip()
 
         if name:  # On ignore les entrées sans nom
-            cursor.execute('''
+            cursor.execute(
+                """
                 INSERT INTO culture (name, description, univers_id)
                 VALUES (?, ?, ?)
-            ''', (name, description, univers_id))
+            """,
+                (name, description, univers_id),
+            )
 
     conn.commit()
     conn.close()
 
 
-def get_univers_id(db_path='../database.db'):
+def get_univers_id(db_path="../database.db"):
     """
     Récupère l'ID du dernier univers inséré dans la base de données SQLite.
 
@@ -126,7 +144,7 @@ def get_univers_id(db_path='../database.db'):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    cursor.execute('SELECT id FROM univers ORDER BY id DESC LIMIT 1')
+    cursor.execute("SELECT id FROM univers ORDER BY id DESC LIMIT 1")
     result = cursor.fetchone()
 
     conn.close()
@@ -134,6 +152,7 @@ def get_univers_id(db_path='../database.db'):
     if result:
         return result[0]
     return None
+
 
 def is_valid_json(text):
     try:
@@ -160,10 +179,13 @@ def ask_faction_extraction(response_content):
 
     user_prompt = f"Extrait les factions de la réponse suivante :\n\n{response_content}"
 
-    response: ChatResponse = chat(model='llama3.2', messages=[
-        {'role': 'system', 'content': system_prompt},
-        {'role': 'user', 'content': user_prompt}
-    ])
+    response: ChatResponse = chat(
+        model="llama3.2",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    )
 
     content = response.message.content.strip()
 
@@ -188,10 +210,16 @@ def ask_faction_extraction(response_content):
                 {content}
                 """
 
-            retry_response: ChatResponse = chat(model='llama3.2', messages=[
-                {'role': 'system', 'content': "Tu corriges des réponses LLM pour les rendre au bon format JSON."},
-                {'role': 'user', 'content': retry_prompt}
-            ])
+            retry_response: ChatResponse = chat(
+                model="llama3.2",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Tu corriges des réponses LLM pour les rendre au bon format JSON.",
+                    },
+                    {"role": "user", "content": retry_prompt},
+                ],
+            )
             retry_content = retry_response.message.content.strip()
             if is_valid_json(retry_content):
                 return json.loads(retry_content)
@@ -218,10 +246,13 @@ def ask_location_extraction(response_content):
 
     user_prompt = f"Extrait les lieux géographiques de la réponse suivante :\n\n{response_content}"
 
-    response: ChatResponse = chat(model='llama3.2', messages=[
-        {'role': 'system', 'content': system_prompt},
-        {'role': 'user', 'content': user_prompt}
-    ])
+    response: ChatResponse = chat(
+        model="llama3.2",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    )
 
     content = response.message.content.strip()
     # print("Réponse brute de l'LLM pour les lieux :", content)
@@ -246,10 +277,16 @@ def ask_location_extraction(response_content):
                 {content}
                 """
 
-            retry_response: ChatResponse = chat(model='llama3.2', messages=[
-                {'role': 'system', 'content': "Tu corriges des réponses LLM pour les rendre au bon format JSON."},
-                {'role': 'user', 'content': retry_prompt}
-            ])
+            retry_response: ChatResponse = chat(
+                model="llama3.2",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Tu corriges des réponses LLM pour les rendre au bon format JSON.",
+                    },
+                    {"role": "user", "content": retry_prompt},
+                ],
+            )
             retry_content = retry_response.message.content.strip()
             if is_valid_json(retry_content):
                 return json.loads(retry_content)
@@ -271,10 +308,13 @@ def ask_univers_extraction(response_content):
 
     user_prompt = f"Extrait les factions de la réponse suivante :\n\n{response_content}"
 
-    response: ChatResponse = chat(model='llama3.2', messages=[
-        {'role': 'system', 'content': system_prompt},
-        {'role': 'user', 'content': user_prompt}
-    ])
+    response: ChatResponse = chat(
+        model="llama3.2",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    )
 
     content = response.message.content.strip()
     # print("Réponse brute de l'LLM pour l'univers :", content)
@@ -299,10 +339,16 @@ def ask_univers_extraction(response_content):
                 {content}
                 """
 
-            retry_response: ChatResponse = chat(model='llama3.2', messages=[
-                {'role': 'system', 'content': "Tu corriges des réponses LLM pour les rendre au bon format JSON."},
-                {'role': 'user', 'content': retry_prompt}
-            ])
+            retry_response: ChatResponse = chat(
+                model="llama3.2",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Tu corriges des réponses LLM pour les rendre au bon format JSON.",
+                    },
+                    {"role": "user", "content": retry_prompt},
+                ],
+            )
             retry_content = retry_response.message.content.strip()
             if is_valid_json(retry_content):
                 return json.loads(retry_content)
@@ -325,10 +371,13 @@ def ask_culture_extraction(response_content):
 
     user_prompt = f"Extrait les cultures de la réponse suivante :\n\n{response_content}"
 
-    response: ChatResponse = chat(model='llama3.2', messages=[
-        {'role': 'system', 'content': system_prompt},
-        {'role': 'user', 'content': user_prompt}
-    ])
+    response: ChatResponse = chat(
+        model="llama3.2",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    )
 
     content = response.message.content.strip()
 
@@ -353,10 +402,16 @@ def ask_culture_extraction(response_content):
                 {content}
                 """
 
-            retry_response: ChatResponse = chat(model='llama3.2', messages=[
-                {'role': 'system', 'content': "Tu corriges des réponses LLM pour les rendre au bon format JSON."},
-                {'role': 'user', 'content': retry_prompt}
-            ])
+            retry_response: ChatResponse = chat(
+                model="llama3.2",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Tu corriges des réponses LLM pour les rendre au bon format JSON.",
+                    },
+                    {"role": "user", "content": retry_prompt},
+                ],
+            )
             retry_content = retry_response.message.content.strip()
             if is_valid_json(retry_content):
                 return json.loads(retry_content)

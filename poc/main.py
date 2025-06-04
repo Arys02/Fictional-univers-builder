@@ -1,13 +1,28 @@
-from llm_call import *
+from llm_call import (
+    chat,
+    ChatResponse,
+    insert_univers,
+    ask_univers_extraction,
+    get_univers_id,
+    insert_factions,
+    ask_faction_extraction,
+    insert_location,
+    ask_location_extraction,
+    insert_cultures,
+    ask_culture_extraction,
+)
 
 print("start")
 # Prompt au LLM
-response: ChatResponse = chat(model='llama3.2', messages=[
-    {
-        'role': 'user',
-        'content': "Génère moi un univers peuplé de dragons et d'objets qui parlent"
-    },
-])
+response: ChatResponse = chat(
+    model="llama3.2",
+    messages=[
+        {
+            "role": "user",
+            "content": "Génère moi un univers peuplé de dragons et d'objets qui parlent",
+        },
+    ],
+)
 
 # Réponse du LLM
 response_content = response.message.content
