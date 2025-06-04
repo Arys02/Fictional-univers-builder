@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
-from tqdm import tqdm
-
 from torch.nn import functional as F
+from tqdm import tqdm
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.manual_seed(4242)
@@ -10,7 +9,7 @@ block_size = 8
 batch_size = 34
 eval_iters = 200
 eval_interval = 100
-n_embedding = 32
+n_embedding = 32  # embeddings
 print(f"Device: {device}")
 
 
@@ -37,19 +36,44 @@ def get_batch(dataset):
     return x, y
 
 
+class Head(nn.Module):
+    ## one head of self-attention
+    def __init__(self, block_size, n_embd, head_size):
+        super().__init__()
+        self.key = nn.Linear(n_embd, head_size, bias=False)
+        self.query = nn.Linear(n_embd, head_size, bias=False)
+        self.value = nn.Linear(n_embd, head_size, bias=False)
+        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+
+    def forward(self, x):
+        B, T, C = x.shape
+
+        k = self.key(x)
+        q = self.query(x)
+
+        kq = q @ k.transpose(-2, -1) * C**-0.5
+        kq = kq.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
+        kq = F.softmax(kq, dim=-1)
+
+        v = self.value(x)
+        attention = kq @ v
+        return attention
+
 class BigramLanguageModel(nn.Module):
     def __init__(self, vocab_size, n_embd):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
+        self.sa_head = Head(block_size, n_embd, n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
 
     def forward(self, idx, target=None):
         B, T = idx.shape
         tok_emb = self.token_embedding_table(idx)
-        pos_emb = self.position_embedding_table(torch.arange(T, device=device))
-        x = tok_emb + pos_emb
-        logits = self.lm_head(x) # (B, T, vocab_size)
+        pos_emb = self.position_embedding_table(torch.arange(T, device=device))  # (T, C)
+        x = tok_emb + pos_emb  # (B, T, C)
+        x = self.sa_head.forward(x)
+        logits = self.lm_head(x)  # (B, T, vocab_size)
 
         if target is not None:
             B, T, C = logits.shape
@@ -65,7 +89,8 @@ class BigramLanguageModel(nn.Module):
 
     def generate(self, idx, max_new_token: int):
         for _ in range(max_new_token):
-            logits, loss = self(idx)
+            idx_cond = idx[:, -block_size:]
+            logits, loss = self.forward(idx_cond)
             logits = logits[:, -1, :]
 
             probs = F.softmax(logits, dim=-1)
@@ -78,18 +103,18 @@ class BigramLanguageModel(nn.Module):
         xb, yb = get_batch(dataset)
         for step in tqdm(range(steps)):
 
-
             optimizer.zero_grad(set_to_none=True)
             logits, loss = self.forward(xb, yb)
             loss.backward()
             optimizer.step()
 
-            if step % (steps *0.1)== 0:
+            if step % (steps * 0.1) == 0:
                 losses = self.estimated_loss(dataset, val_dataset)
                 print(f"\nstep {iter}: train loss {losses[0]:.4f}, val loss {losses[1]:.4f}")
 
     def generate_text(self, max_new_token, alphabet):
-        return decode(alphabet, self.generate(torch.zeros((1, 1), dtype=torch.long, device=device), max_new_token)[0].tolist())
+        return decode(alphabet,
+                      self.generate(torch.zeros((1, 1), dtype=torch.long, device=device), max_new_token)[0].tolist())
 
     @torch.no_grad()
     def estimated_loss(self, ds_train, ds_val):
@@ -98,7 +123,6 @@ class BigramLanguageModel(nn.Module):
         for i, ds in enumerate([ds_train, ds_val]):
             losses = torch.zeros(eval_iters)
 
-
             for k in range(eval_iters):
                 X, Y = get_batch(ds)
                 logits, loss = self.forward(X, Y)
@@ -106,6 +130,11 @@ class BigramLanguageModel(nn.Module):
             out[i] = losses.mean()
         self.train()
         return out
+
+
+
+
+
 
 if __name__ == '__main__':
     with open('../data/raw/sheakspear_input.txt', 'r', encoding='utf-8') as f:
@@ -124,11 +153,10 @@ if __name__ == '__main__':
     ds_train = data[:n]
     ds_test = data[n:]
 
-    m = BigramLanguageModel(vocab_size, n_embedding ).to(device)
+    m = BigramLanguageModel(vocab_size, n_embedding).to(device)
     optimizer = torch.optim.Adam(m.parameters(), lr=0.001)
     print(m.generate_text(500, chars))
 
     m.train_model(ds_train, ds_test, 10000, optimizer)
+    print("post train : ")
     print(m.generate_text(500, chars))
-
-
