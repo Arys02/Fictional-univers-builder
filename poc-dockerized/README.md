@@ -5,7 +5,7 @@ The Fictional Universe Builder is a Flask application that leverages Large Langu
 
 ## Project Structure
 ```
-fictional-universe-builder
+poc-dockerized
 ├── app
 │   ├── app.py                  # Main Flask application
 │   ├── llm_call.py             # LLM interaction module
@@ -33,7 +33,7 @@ fictional-universe-builder
 ### 1. Clone the Repository
 ```bash
 git clone <repository-url>
-cd fictional-universe-builder
+cd poc-dockerized
 ```
 
 ### 2. Check for Port Conflicts
