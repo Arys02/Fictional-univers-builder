@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>Create Your Universe</h1>
+    
+    <div class="card">
+        <form method="post" action="{{ url_for('prompt_page') }}">
+            <h2 class="section-title"><i class="fas fa-magic"></i> Enter your prompt:</h2>
+            <textarea name="prompt" required placeholder="Ex: Generate a medieval fantasy universe with dragons and magic">{{ prompt or '' }}</textarea>
+            
+            {% if previous_response %}
+                <div class="previous-response">
+                    <h3><i class="fas fa-history"></i> Previous Response</h3>
+                    <div class="response-content">{{ previous_response }}</div>
+                </div>
+            {% endif %}
+            
+            {% if is_reprompt %}
+                <input type="hidden" name="is_reprompt" value="true">
+                <input type="hidden" name="original_prompt" value="{{ prompt }}">
+                <input type="hidden" name="previous_response" value="{{ previous_response }}">
+            {% endif %}
+            
+            <button type="submit"><i class="fas fa-paper-plane"></i> Submit</button>
+        </form>
+    </div>
+    
+    {% if error %}
+        <div class="card error-card">
+            <h2 class="section-title"><i class="fas fa-exclamation-triangle"></i> Error</h2>
+            <pre class="error-message">{{ error }}</pre>
+        </div>
+    {% endif %}
+    
+    {% if response %}
+        <div class="card">
+            <h2 class="section-title"><i class="fas fa-robot"></i> Generated Universe</h2>
+            <div class="response-content">
+                {{ response }}
+            </div>
+            
+            <div class="action-buttons">
+                <!-- Form to save the response using the new endpoint -->
+                <form method="post" action="{{ url_for('parse_and_save') }}">
+                    <input type="hidden" name="response_content" value="{{ response }}">
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-save"></i> Parse & Save to Database
+                    </button>
+                </form>
+                
+                <!-- Form to reprompt -->
+                <form method="post" action="{{ url_for('prompt_page') }}">
+                    <input type="hidden" name="prompt" value="{{ prompt }}">
+                    <input type="hidden" name="previous_response" value="{{ response }}">
+                    <input type="hidden" name="reprompt" value="yes">
+                    <button type="submit" class="btn-secondary">
+                        <i class="fas fa-pen"></i> Refine This Universe
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        {% if parsed %}
+        <div class="card">
+            <h2 class="section-title"><i class="fas fa-code"></i> Parsed Data</h2>
+            <pre class="parsed-data">{{ parsed }}</pre>
+        </div>
+        {% endif %}
+    {% endif %}
+    
+    <style>
+        .response-content {
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        
+        .previous-response {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+        }
+        
+        .error-card {
+            border-left: 4px solid #e74c3c;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            background-color: rgba(231, 76, 60, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            overflow-x: auto;
+        }
+        
+        .parsed-data {
+            background-color: var(--bg-tertiary);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: monospace;
+        }
+        
+        .btn-primary {
+            background-color: var(--accent);
+        }
+        
+        .btn-secondary {
+            background-color: var(--bg-tertiary);
+        }
+    </style>
+{% endblock %}

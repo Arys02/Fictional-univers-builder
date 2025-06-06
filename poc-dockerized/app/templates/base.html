@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>D&D Universe Builder</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #121212;
+            --bg-secondary: #1e1e1e;
+            --bg-tertiary: #2d2d2d;
+            --text-primary: #ffffff;
+            --text-secondary: #b3b3b3;
+            --accent: #8c52ff;
+            --accent-hover: #9d6fff;
+            --border: #444444;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            transition: all 0.2s ease;
+        }
+        
+        body { 
+            font-family: 'Poppins', Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 0;
+        }
+        
+        header {
+            background-color: var(--bg-secondary);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            padding: 1.5rem 0;
+            margin-bottom: 2rem;
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .app-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--accent);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        nav { 
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a { 
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 400;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        nav a:hover {
+            background-color: var(--bg-tertiary);
+            color: var(--accent);
+            transform: translateY(-2px);
+        }
+        
+        .container { 
+            max-width: 1000px; 
+            margin: 0 auto;
+            padding: 0 1.5rem 3rem;
+        }
+        
+        .card {
+            background-color: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1, h2, h3, h4 {
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            color: var(--accent);
+        }
+        
+        p {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+        
+        textarea { 
+            width: 100%; 
+            min-height: 180px; 
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Poppins', Arial, sans-serif;
+            font-size: 0.95rem;
+            resize: vertical;
+            margin-bottom: 1rem;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(140, 82, 255, 0.3);
+        }
+        
+        table { 
+            width: 100%; 
+            border-collapse: separate;
+            border-spacing: 0; 
+            margin-top: 1.5rem;
+            overflow: hidden;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        th { 
+            background-color: var(--bg-tertiary);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        td { 
+            padding: 0.75rem 1rem; 
+            text-align: left; 
+            background-color: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        tr:last-child td {
+            border-bottom: none;
+        }
+        
+        tr:hover td {
+            background-color: rgba(45, 45, 45, 0.8);
+        }
+        
+        input[type="text"] { 
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-family: 'Poppins', Arial, sans-serif;
+            width: 100%;
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(140, 82, 255, 0.3);
+        }
+        
+        button, input[type="submit"] {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-family: 'Poppins', Arial, sans-serif;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            font-size: 0.95rem;
+        }
+        
+        button:hover, input[type="submit"]:hover {
+            background-color: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:active, input[type="submit"]:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-secondary {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+        
+        .btn-secondary:hover {
+            background-color: #3d3d3d;
+        }
+        
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .section-title i {
+            color: var(--accent);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem 0;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--accent);
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="app-title">D&D Universe Builder</div>
+            <nav>
+                <a href="/"><i class="fas fa-pen-fancy"></i> LLM Prompt</a>
+                <a href="/wiki"><i class="fas fa-book-open"></i> Wiki Browser</a>
+            </nav>
+        </div>
+    </header>
+    
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+    
+    <script>
+        // Wrap content blocks in cards automatically
+        document.addEventListener('DOMContentLoaded', function() {
+            const contentBlocks = document.querySelectorAll('.container > form, .container > table, .container > h1:not(:first-child), .container > h2:not(:first-child)');
+            
+            contentBlocks.forEach(block => {
+                if (!block.closest('.card')) {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'card';
+                    block.parentNode.insertBefore(wrapper, block);
+                    wrapper.appendChild(block);
+                    
+                    // Group related elements
+                    let next = wrapper.nextSibling;
+                    while (next && 
+                          (next.nodeType !== 1 || 
+                           (next.tagName !== 'FORM' && 
+                            next.tagName !== 'TABLE' && 
+                            next.tagName !== 'H1' && 
+                            next.tagName !== 'H2'))) {
+                        const sibling = next;
+                        next = next.nextSibling;
+                        if (sibling.nodeType === 1) {
+                            wrapper.appendChild(sibling);
+                        }
+                    }
+                }
+            });
+            
+            // Add icon to section titles
+            const sectionTitles = document.querySelectorAll('h1, h2');
+            sectionTitles.forEach(title => {
+                if (!title.querySelector('i')) {
+                    title.classList.add('section-title');
+                    if (title.textContent.toLowerCase().includes('wiki')) {
+                        title.innerHTML = '<i class="fas fa-book"></i>' + title.innerHTML;
+                    } else if (title.textContent.toLowerCase().includes('prompt')) {
+                        title.innerHTML = '<i class="fas fa-magic"></i>' + title.innerHTML;
+                    } else {
+                        title.innerHTML = '<i class="fas fa-dragon"></i>' + title.innerHTML;
+                    }
+                }
+            });
+            
+            // Add empty state for empty tables
+            const tables = document.querySelectorAll('table');
+            tables.forEach(table => {
+                if (table.querySelectorAll('tbody tr').length === 0) {
+                    const container = table.parentNode;
+                    const emptyState = document.createElement('div');
+                    emptyState.className = 'empty-state';
+                    emptyState.innerHTML = '<i class="fas fa-scroll"></i><p>No entries yet. Generate some content to see it here!</p>';
+                    
+                    // Hide table and show empty state
+                    table.style.display = 'none';
+                    container.appendChild(emptyState);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

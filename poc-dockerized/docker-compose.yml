@@ -1,0 +1,39 @@
+services:
+  web:
+    build: .
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
+      - ./app:/app
+      - ./:/project_root
+    environment:
+      - FLASK_ENV=development
+      - DB_PATH=database.db
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      - ollama
+    networks:
+      - app-network
+
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  ollama_data:
