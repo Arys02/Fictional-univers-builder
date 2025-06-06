@@ -31,3 +31,7 @@ typing-extensions==4.14.0
 typing-inspection==0.4.1
 urllib3==1.26.20
 werkzeug==2.0.1
+numpy==2.2.6
+faiss-cpu==1.11.0
+sentence-transformers==4.1.0
+pandas==2.3.0

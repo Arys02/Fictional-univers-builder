@@ -15,6 +15,7 @@ from llm_call import (
     ask_culture_extraction,
 )
 from db_path import get_db_path
+from rag import rag_answer, rag_update_db
 
 app = Flask(__name__)
 
@@ -80,6 +81,7 @@ def parse_and_save():
     
     except Exception as e:
         return {"error": str(e)}, 500
+        
 @app.route("/", methods=["GET", "POST"])
 def prompt_page():
     print("Route accessed with method:", request.method)
@@ -156,6 +158,33 @@ def prompt_page():
 
     return render_template("prompt.html")
 
+@app.route("/rag", methods=["GET", "POST"])
+def rag_page():
+    conn = get_db_connection()
+    print("Connected to database")
+
+    # Get list of universes
+    universes = conn.execute("SELECT * FROM univers").fetchall()
+    
+
+    if request.method == "POST":
+        if request.form.get("action") == "update":
+            question = request.form.get("question")
+            univers_id = request.form.get("universe")
+            script = rag_update_db(question, univers_id)
+            print(script)
+            conn.execute(script)
+            conn.commit()
+            conn.close()
+            return render_template("rag.html", response=script, universes=universes, question=question, univers_id=univers_id)
+        else:
+            question = request.form.get("question")
+            univers_id = request.form.get("universe")
+            response = rag_answer(question, univers_id)
+            conn.close()
+        return render_template("rag.html", response=response, universes=universes, question=question, univers_id=univers_id)
+    return render_template("rag.html", universes=universes)
+    
 @app.route("/wiki")
 def wiki_home():
     try:

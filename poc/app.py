@@ -14,6 +14,7 @@ from llm_call import (
     ask_culture_extraction,
 )
 import os
+from rag import rag_answer
 
 app = Flask(__name__)
 
@@ -157,6 +158,22 @@ def prompt_page():
 
     return render_template("prompt.html")
 
+@app.route("/rag", methods=["GET", "POST"])
+def rag_page():
+    conn = get_db_connection()
+    print("Connected to database")
+
+    # Get list of universes
+    universes = conn.execute("SELECT * FROM univers").fetchall()
+    conn.close()
+
+    if request.method == "POST":
+        question = request.form.get("question")
+        univers_id = request.form.get("universe")
+        response = rag_answer(question, univers_id)
+        return render_template("rag.html", response=response, universes=universes)
+    return render_template("rag.html", universes=universes)
+    
 
 @app.route("/wiki")
 def wiki_home():
