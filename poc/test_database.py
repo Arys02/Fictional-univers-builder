@@ -34,3 +34,5 @@ FROM culture
 """).fetchall()
 
 print(a)
+
+print(type(a))

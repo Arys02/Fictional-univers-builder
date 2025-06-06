@@ -1,6 +1,10 @@
 - appel LLM huggingface (OK)
 (- RAG vers des pdf)
-- mettre en place la bdd
+- mettre en place la bdd:
+    - Rajouter une date d'ajout de la ligne
+    - mettre noms de toutes les colonnes en francais ?
 - faire la partie de parsing de réponse du LLM
-- plug le rag/llm à la bdd
+- plug le rag/llm à la bdd:
+    - faudrait il faire une bdd vectorielle ?
+    - j'ai mis faiss sur cpu et non gpu car trop chiant 
 - streamlit
