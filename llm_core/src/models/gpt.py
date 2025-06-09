@@ -8,32 +8,6 @@ from llm_core.src.training.trainer import Trainer
 
 torch.manual_seed(4242)
 
-
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# block_size = 36
-# batch_size = 8
-# eval_iters = 200
-# eval_interval = 100
-# n_embedding =  50# embeddings
-# n_layers = 6
-# dropout = 0.2
-# n_heads = 6
-# print(f"Device: {device}")
-
-
-## maybe a abstract class for decoder/encoder
-
-
-# def get_batch(dataset):
-#     ix = torch.randint(len(dataset) - block_size, (batch_size,))
-#
-#     xi = [dataset[x:x + block_size] for x in ix]
-#     yi = [dataset[x + 1:x + block_size + 1] for x in ix]
-#
-#     x = torch.stack(xi)
-#     y = torch.stack(yi)
-#     return x, y
-#
 class Block(nn.Module):
     def __init__(self, config):
         n_embd = config.n_embd
@@ -168,37 +142,11 @@ class GPTModel(nn.Module):
             idx = torch.cat((idx, id_next), dim=1)
         return idx
 
-    # def train_model(self, train_dataset, val_dataset, steps, optimizer):
-    #     for step in tqdm(range(steps)):
-    #         xb, yb = get_batch(train_dataset)
-    #
-    #         optimizer.zero_grad(set_to_none=True)
-    #         logits, loss = self.forward(xb, yb)
-    #         loss.backward()
-    #         optimizer.step()
-    #
-    #         if step % (steps * 0.1) == 0:
-    #             losses = self.estimated_loss(train_dataset, val_dataset)
-    #             print(f"\nstep {iter}: train loss {losses[0]:.4f}, val loss {losses[1]:.4f}")
 
     def generate_text(self, max_new_token, encoder):
         return encoder.decode(
             self.generate(torch.zeros((1, 1), dtype=torch.long, device=self.config.device), max_new_token)[0].tolist())
 
-    # @torch.no_grad()
-    # def estimated_loss(self, ds_train, ds_val):
-    #     out = {}
-    #     self.eval()
-    #     for i, ds in enumerate([ds_train, ds_val]):
-    #         losses = torch.zeros(eval_iters)
-    #
-    #         for k in range(eval_iters):
-    #             X, Y = get_batch(ds)
-    #             logits, loss = self.forward(X, Y)
-    #             losses[k] = loss.item()
-    #         out[i] = losses.mean()
-    #     self.train()
-    #     return out
 
 
 if __name__ == '__main__':
