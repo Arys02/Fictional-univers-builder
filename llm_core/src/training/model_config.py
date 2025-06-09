@@ -9,7 +9,8 @@ class ModelConfig:
     n_head = 6
     dropout = 0.2
     vocab_size = None
-    train_steps = 10000
+    train_steps = 1000
     eval_iters = 200
-    eval_interval = 500
+    eval_interval = 50
+    lr = 1e-3
     device = 'cuda' if torch.cuda.is_available() else 'cpu'

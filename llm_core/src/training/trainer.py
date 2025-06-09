@@ -1,5 +1,7 @@
 from tqdm import tqdm
 
+import mlflow
+
 from llm_core.src.training.model_config import ModelConfig
 
 import torch
@@ -50,4 +52,6 @@ class Trainer:
             if step % self.model_config.eval_interval == 0:
                 losses = self.estimated_loss()
                 print(f"\nstep {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+                mlflow.log_metric("train_loss", losses["train"], step=step)
+                mlflow.log_metric("val_loss", losses["val"], step=step)
 

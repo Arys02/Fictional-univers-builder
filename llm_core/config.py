@@ -21,5 +21,10 @@ MODEL_DIR = SRC_DIR / "models"
 TOKEN_DIR = SRC_DIR / "tokenizer"
 
 
+#ML Flow
+MLFLOW_DIR = PROJ_ROOT / "src" /"training" / 'mlruns'
+MLFLOW_PATH = f'file://{MLFLOW_DIR}'
+
+
 
 
