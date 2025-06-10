@@ -2,7 +2,7 @@ from tqdm import tqdm
 
 import mlflow
 
-from llm_core.src.training.model_config import ModelConfig
+from llm_core.src.training.model_config import ExperimentConfig
 
 import torch
 import torch.nn as nn
@@ -13,7 +13,7 @@ class Trainer:
         self.model: nn.Module = model
         self.optimizer = optimizer
         self.train_data, self.val_data = train_data, val_data
-        self.model_config: ModelConfig = model_config
+        self.model_config: ExperimentConfig = model_config
 
     def get_batch(self, dataset):
         ix = torch.randint(len(dataset) - self.model_config.block_size, (self.model_config.batch_size,))

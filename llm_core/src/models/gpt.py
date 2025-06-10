@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from llm_core.src.tokenizer.char_tokenizer import CharTokenizer
-from llm_core.src.training.model_config import ModelConfig
+from llm_core.src.training.model_config import ExperimentConfig
 from llm_core.src.training.trainer import Trainer
 
 torch.manual_seed(4242)
@@ -88,7 +88,7 @@ class Head(nn.Module):
 
 class GPTModel(nn.Module):
 
-    def __init__(self, config: ModelConfig):
+    def __init__(self, config: ExperimentConfig):
         super().__init__()
         self.config = config
         self.token_embedding_table = nn.Embedding(config.vocab_size, config.n_embd)
@@ -159,7 +159,7 @@ if __name__ == '__main__':
     tokenizer = CharTokenizer()
     t = CharTokenizer(chars)
 
-    config = ModelConfig()
+    config = ExperimentConfig()
 
     print(t.encode("hello world"))
     print(t.decode([46, 43, 50, 50, 53, 1, 61, 53, 56, 50, 42]))

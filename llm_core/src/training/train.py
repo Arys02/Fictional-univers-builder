@@ -1,26 +1,27 @@
-from llm_core.config import RAW_DATA_DIR
+from llm_core.config import RAW_DATA_DIR, EXPERIMENTS_CONFIG_DIR
 from llm_core.src.models.gpt import GPTModel
 from llm_core.src.training.trainer import Trainer
 import torch
 import mlflow
 
+from llm_core.src.utils.load_config import load_config
 
 with open(RAW_DATA_DIR / 'sheakspear_input.txt', 'r', encoding='utf-8') as f:
     text = f.read()
 
 
-from llm_core.src.training.model_config import ModelConfig
+from llm_core.src.training.model_config import ExperimentConfig
 from llm_core.src.tokenizer.char_tokenizer import CharTokenizer
 
 chars = sorted(list(set(text)))
 vocab_size = len(chars)
 
 tokenizer = CharTokenizer(chars)
-config = ModelConfig()
-config.vocab_size = vocab_size
 
+config = ExperimentConfig(path=f"{EXPERIMENTS_CONFIG_DIR}/experiment_config.yaml")
+
+## to factorize in another dataset handler
 data = torch.tensor(tokenizer.encode(text), dtype=torch.long, device=config.device)
-
 n = int(len(data) * 0.9)
 train_data = data[:n]
 val_data = data[n:]

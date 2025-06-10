@@ -1,0 +1,21 @@
+meta:
+  experiment_name: gpt_fantasy
+  model_name: gpt_mini
+  tokenizer_type: char
+  dataset: sf_and_fantasy_books
+  notes: test 6 layers, dropout 0.2
+
+model:
+  n_embd: 64
+  n_layers: 6
+  n_head: 4
+  dropout: 0.2
+  block_size: 128
+  vocab_size: 65
+
+training:
+  batch_size: 16
+  train_steps: 1000
+  eval_interval: 100
+  eval_iters: 200
+  lr: 3e-4

@@ -1,16 +1,34 @@
 import torch
 
+from llm_core.src.utils.load_config import load_config
 
-class ModelConfig:
-    block_size = 36
-    batch_size = 8
-    n_embd = 50
-    n_layers = 6
-    n_head = 6
-    dropout = 0.2
-    vocab_size = None
-    train_steps = 1000
-    eval_iters = 200
-    eval_interval = 50
-    lr = 1e-3
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+class ExperimentConfig:
+    def __init__(self, path):
+        c = load_config(path=path)
+        self.config = {
+            "device": "cuda" if torch.cuda.is_available() else "cpu",
+        }
+        self.config = self.config | c['model'] | c['training'] | c['meta']
+        self.config['lr'] = float(self.config['lr'])
+
+    def __getattr__(self, value):
+        try:
+            return self.config[value]
+        except KeyError:
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{value}'")
+
+    def __setattr__(self, key, value):
+        if key == 'config':
+            super().__setattr__(key, value)
+        else:
+            self.config[key] = value
+
+    def __getitem__(self, key):
+        return self.config[key]
+
+    def __setitem__(self, key, value):
+        self.config[key] = value
+
+    def to_dict(self):
+        return self.config
