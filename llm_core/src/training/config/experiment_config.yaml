@@ -1,8 +1,8 @@
 meta:
   experiment_name: gpt_fantasy
-  model_name: gpt_mini
+  model_name: gpt_0.1
   tokenizer_type: char
-  dataset: sf_and_fantasy_books
+  dataset: sheakspear_input
   notes: test 6 layers, dropout 0.2
 
 model:
