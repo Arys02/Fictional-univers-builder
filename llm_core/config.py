@@ -30,7 +30,7 @@ MLFLOW_PATH = f'file://{MLFLOW_DIR}'
 
 mlflow.set_tracking_uri(MLFLOW_PATH)
 
-logger.info(f"MLFLOW URI path is: {MLFLOW_PATH}")
+logger.info(f"MLFLOW URI path is: {mlflow.get_tracking_uri()}")
 
 
 
