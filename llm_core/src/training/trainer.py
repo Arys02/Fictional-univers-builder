@@ -2,7 +2,7 @@ from tqdm import tqdm
 
 import mlflow
 
-from llm_core.src.training.model_config import ExperimentConfig
+from llm_core.src.training.config.model_config import ExperimentConfig
 
 import torch
 import torch.nn as nn

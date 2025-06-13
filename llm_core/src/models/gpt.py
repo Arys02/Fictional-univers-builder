@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from llm_core.src.tokenizer.char_tokenizer import CharTokenizer
-from llm_core.src.training.model_config import ExperimentConfig
+from llm_core.src.training.config.model_config import ExperimentConfig
 from llm_core.src.training.trainer import Trainer
 
 torch.manual_seed(4242)
@@ -90,7 +90,7 @@ class GPTModel(nn.Module):
 
     def __init__(self, config: ExperimentConfig):
         super().__init__()
-        self.config = config
+        self.config = config.config
         self.token_embedding_table = nn.Embedding(config.vocab_size, config.n_embd)
         self.position_embedding_table = nn.Embedding(config.block_size, config.n_embd)
         self.blocks = nn.Sequential(

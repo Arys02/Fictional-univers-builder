@@ -1,21 +1,23 @@
 meta:
   experiment_name: gpt_fantasy
   model_name: gpt_0.1
-  tokenizer_type: char
   dataset: sheakspear_input
-  notes: test 6 layers, dropout 0.2
+  notes: with better parameters, might take a while
+
+tokenizer:
+  tokenizer_type: bpe_custom
+  vocab_size: 8192
 
 model:
-  n_embd: 64
-  n_layers: 6
-  n_head: 4
+  n_embd: 512
+  n_layers: 8
+  n_head: 8
   dropout: 0.2
-  block_size: 128
-  vocab_size: 65
+  block_size: 256
 
 training:
   batch_size: 16
-  train_steps: 1000
-  eval_interval: 100
-  eval_iters: 200
-  lr: 3e-4
+  train_steps: 10000
+  eval_interval: 250
+  eval_iters: 100
+  lr: 2e-4

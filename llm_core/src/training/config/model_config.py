@@ -11,15 +11,16 @@ class ExperimentConfig:
         self.meta = c['meta']
         self.meta['device'] = "cuda" if torch.cuda.is_available() else "cpu"
 
-        self.config = c['model'] | c['training'] | c['meta']
+        self.tokenizer = c['tokenizer']
+
+        self.config = c['model'] | c['training'] | c['meta'] | c['tokenizer']
         self.config['lr'] = float(self.config['lr'])
 
     def __getattr__(self, value):
-        try:
-            return self.config[value]
-        except KeyError:
-            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{value}'")
-
+        config = self.__dict__.get("config", {})
+        if value in config:
+            return config[value]
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{value}'")
 
     def __getitem__(self, key):
         if key == "meta":
@@ -28,6 +29,8 @@ class ExperimentConfig:
             return self.training
         if key == "model":
             return self.model
+        if key == "tokenizer":
+            return self.tokenizer
         return self.config
 
     def to_dict(self):

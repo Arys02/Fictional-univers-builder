@@ -3,7 +3,6 @@ import json
 from llm_core.src.tokenizer.base_tokenizer import BaseTokenizer
 
 
-
 class CharTokenizer(BaseTokenizer):
     def __init__(self, alphabet=None):
         if alphabet:
@@ -29,3 +28,6 @@ class CharTokenizer(BaseTokenizer):
             self.alphabet = data['alphabet']
             self.stoi = {ch: i for i, ch in enumerate(self.alphabet)}
             self.itos = {i: ch for i, ch in enumerate(self.alphabet)}
+
+    def train(self, text):
+        pass

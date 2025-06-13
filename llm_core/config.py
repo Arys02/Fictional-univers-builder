@@ -32,6 +32,12 @@ mlflow.set_tracking_uri(MLFLOW_PATH)
 
 logger.info(f"MLFLOW URI path is: {mlflow.get_tracking_uri()}")
 
+# saved_tokenizer
+SAVED_TOKENIZER_DIR = PROJ_ROOT / 'saved_tokenizers'
+
+# saved_tokenizer
+SAVED_MODEL_DIR = PROJ_ROOT / 'saved_models'
+
 
 
 
