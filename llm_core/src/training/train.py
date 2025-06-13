@@ -1,4 +1,4 @@
-from llm_core.config import RAW_DATA_DIR, EXPERIMENTS_CONFIG_DIR, SAVED_MODEL_DIR, SAVED_TOKENIZER_DIR
+from llm_core.config import RAW_DATA_DIR, EXPERIMENTS_CONFIG_DIR, SAVED_MODEL_DIR, SAVED_TOKENIZER_DIR, PROCESSED_DATA_DIR, TOKENIZED_DATA_DIR
 from llm_core.src.models.gpt import GPTModel
 from llm_core.src.tokenizer.bpe_tokenizer import BPETokenizer
 from llm_core.src.training.config.model_config import ExperimentConfig
@@ -13,30 +13,32 @@ with open(RAW_DATA_DIR / 'sheakspear_input.txt', 'r', encoding='utf-8') as f:
 
 
 config = ExperimentConfig(path=f"{EXPERIMENTS_CONFIG_DIR}/experiment_config.yaml")
-from llm_core.src.tokenizer.char_tokenizer import CharTokenizer
+experiment_name = config.experiment_name
+mlflow.set_experiment(experiment_name)
+
 
 chars = sorted(list(set(text)))
 vocab_size = len(chars)
 
 #tokenizer = CharTokenizer(chars)
-tokenizer = BPETokenizer()
-tokenizer.train(text, config.tokenizer['vocab_size'])
-tokenizer.save(SAVED_TOKENIZER_DIR / 'tokenizer_sheakspear_8192.json')
+tokenizer = BPETokenizer(SAVED_TOKENIZER_DIR / 'tokenizer_sheakspear_8192.json')
+# tokenizer.train(text, config.tokenizer['vocab_size'])
+# tokenizer.save(SAVED_TOKENIZER_DIR / 'tokenizer_sheakspear_8192.json')
 
 
-experiment_name = config.experiment_name
-
-mlflow.set_experiment(experiment_name)
 
 ## to factorize in another dataset handler
 print(config.device)
-print(config)
-data = torch.tensor(tokenizer.encode(text), dtype=torch.long, device=config.device)
+print(config.to_dict())
+#data = torch.tensor(tokenizer.encode(text), dtype=torch.long, device=config.device)
+
+data = torch.load(TOKENIZED_DATA_DIR / 'tokenized_sheakspear_8192.pt').to(config.device)
 
 n = int(len(data) * 0.9)
 train_data = data[:n]
 val_data = data[n:]
 
+#%%
 
 model = GPTModel(config).to(config.device)
 
@@ -57,3 +59,5 @@ with mlflow.start_run():
     trainer.train()
 
     mlflow.pytorch.log_model(model, config.model_name)
+
+#%%

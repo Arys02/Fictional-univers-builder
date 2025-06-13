@@ -13,6 +13,7 @@ logger.info(f"PROJ_ROOT path is: {PROJ_ROOT}")
 # data
 DATA_DIR = PROJ_ROOT / "data"
 RAW_DATA_DIR = DATA_DIR / "raw"
+TOKENIZED_DATA_DIR = DATA_DIR / "tokenized"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
 
 # src
@@ -35,9 +36,8 @@ logger.info(f"MLFLOW URI path is: {mlflow.get_tracking_uri()}")
 # saved_tokenizer
 SAVED_TOKENIZER_DIR = PROJ_ROOT / 'saved_tokenizers'
 
-# saved_tokenizer
+# saved_model
 SAVED_MODEL_DIR = PROJ_ROOT / 'saved_models'
-
 
 
 

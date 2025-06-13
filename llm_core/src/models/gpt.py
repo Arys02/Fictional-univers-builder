@@ -6,8 +6,6 @@ from llm_core.src.tokenizer.char_tokenizer import CharTokenizer
 from llm_core.src.training.config.model_config import ExperimentConfig
 from llm_core.src.training.trainer import Trainer
 
-torch.manual_seed(4242)
-
 class Block(nn.Module):
     def __init__(self, config):
         n_embd = config.n_embd
@@ -112,7 +110,7 @@ class GPTModel(nn.Module):
     def forward(self, idx, target=None):
         B, T = idx.shape
         tok_emb = self.token_embedding_table(idx)
-        pos_emb = self.position_embedding_table(torch.arange(T, device=self.config.device))  # (T, C)
+        pos_emb = self.position_embedding_table(torch.arange(T, device=self.config['device']))  # (T, C)
         x = tok_emb + pos_emb  # (B, T, C)
         x = self.blocks(x)
         x = self.ln1(x)
@@ -132,7 +130,7 @@ class GPTModel(nn.Module):
 
     def generate(self, idx, max_new_token: int):
         for _ in range(max_new_token):
-            idx_cond = idx[:, -self.config.block_size:]
+            idx_cond = idx[:, -self.config['block_size']:]
             logits, loss = self.forward(idx_cond)
             logits = logits[:, -1, :]
 
@@ -145,7 +143,7 @@ class GPTModel(nn.Module):
 
     def generate_text(self, max_new_token, encoder):
         return encoder.decode(
-            self.generate(torch.zeros((1, 1), dtype=torch.long, device=self.config.device), max_new_token)[0].tolist())
+            self.generate(torch.zeros((1, 1), dtype=torch.long, device=self.config['device']), max_new_token)[0].tolist())
 
 
 
