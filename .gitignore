@@ -174,3 +174,7 @@ cython_debug/
 .pypirc
 
 mlruns
+
+saved_tokenizers
+saved_models
+tokenized
