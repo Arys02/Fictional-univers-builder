@@ -55,3 +55,7 @@ class Trainer:
                 mlflow.log_metric("train_loss", losses["train"], step=step)
                 mlflow.log_metric("val_loss", losses["val"], step=step)
 
+        final_losses = self.estimated_loss()
+        mlflow.log_metric("final_train_loss", final_losses["train"])
+        mlflow.log_metric("final_val_loss", final_losses["val"])
+

@@ -1,19 +1,20 @@
 meta:
-  experiment_name: gpt_fantasy
-  model_name: gpt_0.1
-  dataset: sheakspear_input
-  notes: with better parameters, might take a while
+  experiment_name: gpt2_shakespear
+  model_name: gpt2
+  dataset: sheakspear
+  notes: testing gpt2 implementation with shakespear dataset
 
 tokenizer:
   tokenizer_type: bpe_custom
-  vocab_size: 8192
+  vocab_size: 50257
+  # always 50257 for gpt model checkpoints
 
 model:
   n_embd: 512
-  n_layers: 8
-  n_head: 8
+  n_layers: 16
+  n_head: 32
   dropout: 0.2
-  block_size: 256
+  block_size: 1024 # always 1024 for gpt model checkpoints
 
 training:
   batch_size: 16

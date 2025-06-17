@@ -15,6 +15,7 @@ DATA_DIR = PROJ_ROOT / "data"
 RAW_DATA_DIR = DATA_DIR / "raw"
 TOKENIZED_DATA_DIR = DATA_DIR / "tokenized"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
+WIKIPEDIA_DATA_DIR = "/mnt/d/Documents/wikipedia/frwiki-latest-pages-articles.xml"
 
 # src
 SRC_DIR = PROJ_ROOT / "src"
