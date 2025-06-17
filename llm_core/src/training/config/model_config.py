@@ -13,6 +13,13 @@ class ExperimentConfig:
 
         self.tokenizer = c['tokenizer']
 
+        self.tokenizer['tokenizer_name'] = ("tokenizer_"
+                                            + c['tokenizer']['tokenizer_type']
+                                            + '_'
+                                            + c['meta']['dataset']
+                                            + '_'
+                                            + str(c['tokenizer']['vocab_size']))
+
         self.config = c['model'] | c['training'] | c['meta'] | c['tokenizer']
         self.config['lr'] = float(self.config['lr'])
 

@@ -148,7 +148,7 @@ class GPTModel(nn.Module):
 
 
 if __name__ == '__main__':
-    with open('../../data/raw/sheakspear_input.txt', 'r', encoding='utf-8') as f:
+    with open('../../data/raw/sheakspear.txt', 'r', encoding='utf-8') as f:
         text = f.read()
 
     chars = sorted(list(set(text)))

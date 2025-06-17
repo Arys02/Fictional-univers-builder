@@ -3,20 +3,24 @@ from collections import OrderedDict
 
 from tqdm import tqdm
 
+from llm_core.config import SAVED_TOKENIZER_DIR, RAW_DATA_DIR
 from llm_core.src.tokenizer.base_tokenizer import BaseTokenizer
 
 
 class BPETokenizer(BaseTokenizer):
-    def __init__(self, link: str = None):
-        if link is None:
+    def __init__(self, tokenizer_name: str = None):
+        if tokenizer_name is None:
             self.bpe_table = OrderedDict()
         else:
+            link = SAVED_TOKENIZER_DIR / f'{tokenizer_name}.json'
             with open(link, "r") as f:
                 raw = json.load(f)
                 self.bpe_table = OrderedDict({int(k): tuple(v) for k, v in raw.items()})
 
-    def train(self, corpus, max_token=256):
-        tokens = list(map(int, corpus.encode("utf-8")))
+    def train(self, dataset_name, max_token=256):
+        with open(RAW_DATA_DIR / f'{dataset_name}.txt', 'r', encoding='utf-8') as f:
+            text = f.read()
+        tokens = list(map(int, text.encode("utf-8")))
         max_token = max_token - 256
         BPE: OrderedDict = OrderedDict()
         new_tokens: list = list(tokens)
