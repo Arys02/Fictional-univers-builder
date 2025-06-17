@@ -1,19 +1,22 @@
 import math
 from dataclasses import dataclass
 
-import torch.nn as nn
 import torch
-
+import torch.nn as nn
 from torch.nn import functional as F
+
+from llm_core.config import TOKENIZED_DATA_DIR
+from llm_core.src.data.data_loader import DataLoader
+from llm_core.src.tokenizer.tiktoken_tokenizer import TiktokenTokenizer
 
 
 @dataclass()
 class GPTConfig:
-    block_size: int = 256
-    vocab_size: int = 65
-    n_layer: int = 6
-    n_head: int = 6
-    n_embd: int = 384
+    block_size: int = 1024  # max sequence length
+    vocab_size: int = 50257  # number of tokens: 50,000 BPE merges + 256 bytes tokens + 1 <|endoftext|> token
+    n_layer: int = 12  # number of layers
+    n_head: int = 12  # number of heads
+    n_embd: int = 768  # embedding dimension
 
 
 class CausalSelfAttention(nn.Module):
@@ -92,7 +95,18 @@ class GPT2(nn.Module):
 
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
-    def forward(self, idx):
+        self.transformer.wte.weight = self.lm_head.weight
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, 0, 0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        if isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, 0, 0.02)
+
+    def forward(self, idx, targets=None):
         B, T = idx.size()
 
         assert T <= self.config.block_size, f"{T} <= {self.config.block_size}"
@@ -107,7 +121,10 @@ class GPT2(nn.Module):
 
         x = self.transformer.ln_f(x)
         logits = self.lm_head(x)
-        return logits
+        loss = None
+        if targets is not None:
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+        return logits, loss
 
     @classmethod
     def from_pretrained(cls, model_type):
@@ -166,36 +183,37 @@ model = GPT2.from_pretrained('gpt2')
 model.eval()
 model.to('cuda')
 
-#prefix_token
-
-import tiktoken
-
-enc = tiktoken.get_encoding('gpt2')
-tokens = enc.encode("hello, i am a language model,")
-tokens = torch.tensor(tokens, dtype=torch.long, device='cuda')
-tokens = tokens.unsqueeze(0).repeat(num_return_sequence, 1)
-x = tokens
+# prefix_token
 
 torch.manual_seed(42)
 torch.cuda.manual_seed(42)
 
+# enc = tiktoken.get_encoding('gpt2')
 
-while x.size(1) < max_length:
+tokenizer = TiktokenTokenizer('gpt2')
+data_loader = DataLoader(TOKENIZED_DATA_DIR / 'tokenizer_tiktoken_gpt2_sheakspear_50257.pt', 'tokens', 'cuda')
+tokens = data_loader.tokens
 
-    with torch.no_grad():
-        logits = model(x)
-        logits = logits[:, -1, :]
-        probs = F.softmax(logits, dim=-1)
+# print(text)
+# tokens = enc.encode(text)
+# tokens = tokenizer.encode(data.rawdata)
+# tokens = torch.tensor(tokens).to('cuda')
+# tokens = torch.load(TOKENIZED_DATA_DIR / 'tokenizer_tiktoken_gpt2_sheakspear_50257.pt')
 
-        topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)
+B, T = 4, 32
 
-        ix = torch.multinomial(topk_probs, num_samples=1)
+conf = GPTConfig()
+model = GPT2(conf).to('cuda')
 
-        xcol = torch.gather(topk_indices, dim=-1, index=ix)
+optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
 
-        x = torch.cat((x, xcol), dim=1)
+for i in range(50):
+    x, y = data_loader.get_batch(batch_size=4, block_size=32)
+    x, y = x.to('cuda'), y.to('cuda')
+    optimizer.zero_grad()
+    logits, loss = model(x, y)
+    loss.backward()
+    optimizer.step()
+    print(loss.item())
 
-for i in range(num_return_sequence):
-    tokens = x[i, :max_length].tolist()
-    decoded = enc.decode(tokens)
-    print(">", decoded)
+# %%

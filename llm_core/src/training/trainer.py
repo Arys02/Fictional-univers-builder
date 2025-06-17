@@ -16,6 +16,7 @@ class Trainer:
         self.model_config: ExperimentConfig = model_config
 
     def get_batch(self, dataset):
+
         ix = torch.randint(len(dataset) - self.model_config.block_size, (self.model_config.batch_size,))
 
         xi = [dataset[x:x + self.model_config.block_size] for x in ix]
