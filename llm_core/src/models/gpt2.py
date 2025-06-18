@@ -1,3 +1,4 @@
+import inspect
 import math
 from dataclasses import dataclass
 
@@ -26,6 +27,7 @@ class CausalSelfAttention(nn.Module):
 
         self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd)
         self.c_proj = nn.Linear(config.n_embd, config.n_embd)
+        self.c_proj.GPT2_SCALE_INIT = 1
         self.n_head = config.n_head
         self.n_embd = config.n_embd
 
@@ -43,11 +45,13 @@ class CausalSelfAttention(nn.Module):
         q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
         v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
 
-        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf'))
-        att = F.softmax(att, dim=-1)
+        # att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+        # att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf'))
+        # att = F.softmax(att, dim=-1)
+        # y = att @ v
 
-        y = att @ v
+        y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+
         y = y.transpose(1, 2).contiguous().view(B, T, C)
         y = self.c_proj(y)
         return y
@@ -59,6 +63,8 @@ class MLP(nn.Module):
         self.c_fc = nn.Linear(config.n_embd, 4 * config.n_embd)
         self.gelu = nn.GELU(approximate='tanh')
         self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd)
+
+        self.c_proj.GPT2_SCALE_INIT = 1
 
     def forward(self, x):
         x = self.c_fc(x)
@@ -96,11 +102,14 @@ class GPT2(nn.Module):
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
         self.transformer.wte.weight = self.lm_head.weight
-        self.apply(self._init_weights)
+        #self.apply(self._init_weights)
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
-            torch.nn.init.normal_(module.weight, 0, 0.02)
+            std = 0.02
+            if hasattr(module, 'GPT2_SCALE_INIT'):
+                std *= (2 * self.config.n_layer) ** -0.5
+            torch.nn.init.normal_(module.weight, 0, std)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
         if isinstance(module, nn.Embedding):
@@ -175,6 +184,29 @@ class GPT2(nn.Module):
 
         return model
 
+    def configure_optimizers(self, weight_decay, learning_rate, device_type):
+        # start with all of the candidate parameters (that require grad)
+        param_dict = {pn: p for pn, p in self.named_parameters()}
+        param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
+        # create optim groups. Any parameters that is 2D will be weight decayed, otherwise no.
+        # i.e. all weight tensors in matmuls + embeddings decay, all biases and layernorms don't.
+        decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
+        nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
+        optim_groups = [
+            {'params': decay_params, 'weight_decay': weight_decay},
+            {'params': nodecay_params, 'weight_decay': 0.0}
+        ]
+        num_decay_params = sum(p.numel() for p in decay_params)
+        num_nodecay_params = sum(p.numel() for p in nodecay_params)
+
+        # Create AdamW optimizer and use the fused version if it is available
+        fused_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
+        use_fused = fused_available and device_type == "cuda"
+        print(f"using fused AdamW: {use_fused}")
+        optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=(0.9, 0.95), eps=1e-8, fused=use_fused)
+        return optimizer
+
+import time
 
 num_return_sequence = 5
 max_length = 30
@@ -200,20 +232,73 @@ tokens = data_loader.tokens
 # tokens = torch.tensor(tokens).to('cuda')
 # tokens = torch.load(TOKENIZED_DATA_DIR / 'tokenizer_tiktoken_gpt2_sheakspear_50257.pt')
 
-B, T = 4, 32
+B, T = 8, 1024
+total_batch_size = 524288 # 2**19 ~0.5M in number of token
 
-conf = GPTConfig()
+assert total_batch_size % (B * T) == 0
+
+grad_accum_step = total_batch_size // (B * T)
+print("total batch size:", total_batch_size)
+print("grad accum step:", grad_accum_step)
+
+#should score and test on mlflow with an wo
+torch.set_float32_matmul_precision('high')
+
+conf = GPTConfig(vocab_size=50304)
 model = GPT2(conf).to('cuda')
+#model = torch.compile(model)
 
-optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
 
-for i in range(50):
-    x, y = data_loader.get_batch(batch_size=4, block_size=32)
-    x, y = x.to('cuda'), y.to('cuda')
+#### cosin learning rate decay
+max_lr = 6e-4
+min_lr = max_lr * 0.1
+warmup_steps = 10
+max_steps = 50
+
+def get_lr(it):
+    if it < warmup_steps:
+        return max_lr * (it + 1) / warmup_steps
+
+    if it > max_steps:
+        return min_lr
+
+    decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
+    assert 0 <= decay_ratio <= 1
+    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
+    return min_lr + coeff * (max_lr - min_lr)
+
+
+#optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
+optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device_type='cuda')
+
+for i in range(max_steps):
+    t0 = time.time()
+
     optimizer.zero_grad()
-    logits, loss = model(x, y)
-    loss.backward()
+
+
+    loss_accum = 0.0
+    for micro_step in range(grad_accum_step):
+        x, y = data_loader.get_batch(batch_size=B, block_size=T)
+        x, y = x.to('cuda'), y.to('cuda')
+
+        # torch opti #2 a verifier
+        with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+            logits, loss = model(x, y)
+
+        loss = loss / grad_accum_step
+        loss_accum += loss.detach()
+        loss.backward()
+
+    norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
+    lr = get_lr(i)
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
     optimizer.step()
-    print(loss.item())
+    t1 = time.time()
+    torch.cuda.synchronize()
+    dt = (t1 - t0) * 1000
+    print(f"step {i} | loss = {loss_accum:.4f} | norm = {norm:.4f} | time = {dt:.2f} ms | tok/sec: {(B * T) / (t1 - t0): .2f}")
 
 # %%
