@@ -42,6 +42,7 @@
                 <!-- Form to save the response using the new endpoint -->
                 <form method="post" action="{{ url_for('parse_and_save') }}">
                     <input type="hidden" name="response_content" value="{{ response }}">
+                    <input type="hidden" name="prompt" value="{{ prompt }}">
                     <button type="submit" class="btn-primary">
                         <i class="fas fa-save"></i> Parse & Save to Database
                     </button>
