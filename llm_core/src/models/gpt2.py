@@ -6,9 +6,12 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from llm_core.config import TOKENIZED_DATA_DIR
+from llm_core.config import TOKENIZED_DATA_DIR, EXPERIMENTS_CONFIG_DIR
 from llm_core.src.data.data_loader import DataLoader
 from llm_core.src.tokenizer.tiktoken_tokenizer import TiktokenTokenizer
+from llm_core.src.training.config.model_config import ExperimentConfig
+
+from loguru import logger
 
 
 @dataclass()
@@ -21,9 +24,9 @@ class GPTConfig:
 
 
 class CausalSelfAttention(nn.Module):
-    def __init__(self, config: GPTConfig):
+    def __init__(self, config: ExperimentConfig):
         super().__init__()
-        assert config.n_embd % config.n_head == 0
+        assert config.n_embd % config.n_head == 0, f"Error {config.n_embd} % {config.n_head} != 0"
 
         self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd)
         self.c_proj = nn.Linear(config.n_embd, config.n_embd)
@@ -58,7 +61,7 @@ class CausalSelfAttention(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, config: GPTConfig):
+    def __init__(self, config: ExperimentConfig):
         super().__init__()
         self.c_fc = nn.Linear(config.n_embd, 4 * config.n_embd)
         self.gelu = nn.GELU(approximate='tanh')
@@ -74,7 +77,7 @@ class MLP(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self, config: GPTConfig):
+    def __init__(self, config: ExperimentConfig):
         super().__init__()
         self.ln_1: nn.Module = nn.LayerNorm(config.n_embd)
         self.attn: nn.Module = CausalSelfAttention(config)
@@ -88,7 +91,9 @@ class Block(nn.Module):
 
 
 class GPT2(nn.Module):
-    def __init__(self, config: GPTConfig):
+    def __init__(self, config: ExperimentConfig):
+
+        logger.info(f"GPT2: Initializing Model")
         super().__init__()
         self.config = config
 
@@ -137,6 +142,7 @@ class GPT2(nn.Module):
 
     @classmethod
     def from_pretrained(cls, model_type):
+        logger.info(f"GPT2: Loading GPT2 from pretrain data - {model_type}")
         """Loads pretrained GPT-2 model weights from huggingface"""
         assert model_type in {'gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl'}
         from transformers import GPT2LMHeadModel
@@ -185,6 +191,8 @@ class GPT2(nn.Module):
         return model
 
     def configure_optimizers(self, weight_decay, learning_rate, device_type):
+        logger.info(f"GPT2: Configuring AdamW optimizer with weight_decay: {weight_decay}, learning_rate: {learning_rate}, device_type: {device_type}")
+
         # start with all of the candidate parameters (that require grad)
         param_dict = {pn: p for pn, p in self.named_parameters()}
         param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
@@ -206,99 +214,110 @@ class GPT2(nn.Module):
         optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=(0.9, 0.95), eps=1e-8, fused=use_fused)
         return optimizer
 
+
 import time
 
-num_return_sequence = 5
-max_length = 30
+if __name__ == '__main__':
 
-model = GPT2.from_pretrained('gpt2')
-model.eval()
-model.to('cuda')
+    num_return_sequence = 5
+    max_length = 30
 
-# prefix_token
+    # model = GPT2.from_pretrained('gpt2')
+    # model.eval()
+    # model.to('cuda')
 
-torch.manual_seed(42)
-torch.cuda.manual_seed(42)
+    # prefix_token
 
-# enc = tiktoken.get_encoding('gpt2')
+    torch.manual_seed(42)
+    torch.cuda.manual_seed(42)
 
-tokenizer = TiktokenTokenizer('gpt2')
-data_loader = DataLoader(TOKENIZED_DATA_DIR / 'tokenizer_tiktoken_gpt2_sheakspear_50257.pt', 'tokens', 'cuda')
-tokens = data_loader.tokens
+    # enc = tiktoken.get_encoding('gpt2')
 
-# print(text)
-# tokens = enc.encode(text)
-# tokens = tokenizer.encode(data.rawdata)
-# tokens = torch.tensor(tokens).to('cuda')
-# tokens = torch.load(TOKENIZED_DATA_DIR / 'tokenizer_tiktoken_gpt2_sheakspear_50257.pt')
+    # tokenizer = TiktokenTokenizer('gpt2')
+    data_loader = DataLoader(TOKENIZED_DATA_DIR / 'tokenizer_tiktoken_sheakspear_50257.pt', 'tokens', 'cuda')
+    data_loader.split(0.1)
+    # tokens = data_loader.tokens
 
-B, T = 8, 1024
-total_batch_size = 524288 # 2**19 ~0.5M in number of token
+    # print(text)
+    # tokens = enc.encode(text)
+    # tokens = tokenizer.encode(data.rawdata)
+    # tokens = torch.tensor(tokens).to('cuda')
+    # tokens = torch.load(TOKENIZED_DATA_DIR / 'tokenizer_tiktoken_sheakspear_50257.pt')
 
-assert total_batch_size % (B * T) == 0
+    B, T = 8, 1024
+    #total_batch_size = 524288# 2**19 ~0.5M in number of token
+    total_batch_size = 8192
 
-grad_accum_step = total_batch_size // (B * T)
-print("total batch size:", total_batch_size)
-print("grad accum step:", grad_accum_step)
+    assert total_batch_size % (B * T) == 0
 
-#should score and test on mlflow with an wo
-torch.set_float32_matmul_precision('high')
+    grad_accum_step = total_batch_size // (B * T)
+    print("total batch size:", total_batch_size)
+    print("grad accum step:", grad_accum_step)
 
-conf = GPTConfig(vocab_size=50304)
-model = GPT2(conf).to('cuda')
-#model = torch.compile(model)
+    #should score and test on mlflow with an wo
+    torch.set_float32_matmul_precision('high')
 
+    config = ExperimentConfig(path=f"{EXPERIMENTS_CONFIG_DIR}/experiment_config.yaml")
+    experiment_name = config.experiment_name
 
-#### cosin learning rate decay
-max_lr = 6e-4
-min_lr = max_lr * 0.1
-warmup_steps = 10
-max_steps = 50
-
-def get_lr(it):
-    if it < warmup_steps:
-        return max_lr * (it + 1) / warmup_steps
-
-    if it > max_steps:
-        return min_lr
-
-    decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
-    assert 0 <= decay_ratio <= 1
-    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
-    return min_lr + coeff * (max_lr - min_lr)
+    # conf = GPTConfig(vocab_size=50304)
+    model = GPT2(config).to('cuda')
+    #model = torch.compile(model)
 
 
-#optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
-optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device_type='cuda')
+    #### cosin learning rate decay
+    max_lr = 6e-4
+    min_lr = max_lr * 0.1
+    warmup_steps = 10
+    max_steps = 50
 
-for i in range(max_steps):
-    t0 = time.time()
+    def get_lr(it):
+        if it < warmup_steps:
+            return max_lr * (it + 1) / warmup_steps
 
-    optimizer.zero_grad()
+        if it > max_steps:
+            return min_lr
+
+        decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
+        assert 0 <= decay_ratio <= 1
+        coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
+        return min_lr + coeff * (max_lr - min_lr)
 
 
-    loss_accum = 0.0
-    for micro_step in range(grad_accum_step):
-        x, y = data_loader.get_batch(batch_size=B, block_size=T)
-        x, y = x.to('cuda'), y.to('cuda')
+    #optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
+    optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device_type='cuda')
 
-        # torch opti #2 a verifier
-        with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
-            logits, loss = model(x, y)
+    for i in range(max_steps):
+        t0 = time.time()
 
-        loss = loss / grad_accum_step
-        loss_accum += loss.detach()
-        loss.backward()
+        optimizer.zero_grad()
 
-    norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
 
-    lr = get_lr(i)
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-    optimizer.step()
-    t1 = time.time()
-    torch.cuda.synchronize()
-    dt = (t1 - t0) * 1000
-    print(f"step {i} | loss = {loss_accum:.4f} | norm = {norm:.4f} | time = {dt:.2f} ms | tok/sec: {(B * T) / (t1 - t0): .2f}")
+        loss_accum = 0.0
+        for micro_step in range(grad_accum_step):
+            x, y = data_loader.get_batch(batch_size=B, block_size=T, dataset='train')
+            x, y = x.to('cuda'), y.to('cuda')
+
+            # torch opti #2 a verifier
+            with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+                logits, loss = model(x, y)
+
+            loss = loss / grad_accum_step
+            loss_accum += loss.detach()
+            loss.backward()
+
+        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
+        lr = get_lr(i)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+        optimizer.step()
+        t1 = time.time()
+        torch.cuda.synchronize()
+        dt = (t1 - t0) * 1000
+        print(f"step {i} | loss = {loss_accum:.4f} | norm = {norm:.4f} | time = {dt:.2f} ms | tok/sec: {(B * T) / (t1 - t0): .2f}")
+
+    from llm_core.config import SAVED_MODEL_DIR
+
 
 # %%

@@ -1,11 +1,13 @@
 import mlflow
 import torch
 from mlflow.tracking import MlflowClient
+from loguru import logger
 
 from llm_core.config import EXPERIMENTS_CONFIG_DIR, SAVED_TOKENIZER_DIR, \
     TOKENIZED_DATA_DIR
 from llm_core.src.data.data_loader import DataLoader
 from llm_core.src.models.gpt import GPTModel
+from llm_core.src.models.gpt2 import GPT2
 from llm_core.src.tokenizer.bpe_tokenizer import BPETokenizer
 from llm_core.src.tokenizer.char_tokenizer import CharTokenizer
 from llm_core.src.training.config.model_config import ExperimentConfig
@@ -17,29 +19,29 @@ mlflow.set_experiment(experiment_name)
 
 tokenizer_name = config.tokenizer['tokenizer_name']
 
-print(f'tokenizer name : {tokenizer_name}')
+logger.info(f"Tokenizer name : {tokenizer_name}")
 
-tokenizer = CharTokenizer(config.meta['dataset'])
-tokenizer = BPETokenizer(tokenizer_name)
+#tokenizer = CharTokenizer(config.meta['dataset'])
+#tokenizer = BPETokenizer(tokenizer_name)
 # tokenizer = BPETokenizer()
-tokenizer.train(config.meta['dataset'], config.tokenizer['vocab_size'])
+# tokenizer.train(config.meta['dataset'], config.tokenizer['vocab_size'])
 # tokenizer.save(SAVED_TOKENIZER_DIR / f'{tokenizer_name}.json')
 
 
 ## to factorize in another dataset handler
-print(config.to_dict())
+logger.info(f"Configuration json :{config.to_dict()}")
 # data = torch.tensor(tokenizer.encode(text), dtype=torch.long, device=config.device)
 
 data = DataLoader.fromTokens(type=config.tokenizer['tokenizer_type'], dataset=config.meta['dataset'],
                              vocab_size=config.tokenizer['vocab_size'], device=config.device)
 
-train_data, val_data = data.split(0.8)
+data.split(config.split_ratio)
 
 
-model = GPTModel(config).to(config.device)
+model = GPT2(config).to(config.device)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
-trainer = Trainer(model, optimizer, train_data, val_data, config)
+optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device_type='cuda')
+trainer = Trainer(model, optimizer, data, config)
 
 with mlflow.start_run():
     flat_config = {
@@ -52,7 +54,7 @@ with mlflow.start_run():
     mlflow.log_param("device", config.device)
     mlflow.log_param("tokenized_dataset_file", TOKENIZED_DATA_DIR / f'{tokenizer_name}.pt')
     mlflow.set_tag("tokenizer_path", str(SAVED_TOKENIZER_DIR / f'{tokenizer_name}.json'))
-    mlflow.log_artifact(SAVED_TOKENIZER_DIR / f'{tokenizer_name}.json', artifact_path='tokenizer')
+    # mlflow.log_artifact(SAVED_TOKENIZER_DIR / f'{tokenizer_name}.json', artifact_path='tokenizer')
     mlflow.log_artifact(EXPERIMENTS_CONFIG_DIR / 'experiment_config.yaml', artifact_path='config')
 
     trainer.train()

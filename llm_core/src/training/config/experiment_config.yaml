@@ -5,20 +5,27 @@ meta:
   notes: testing gpt2 implementation with shakespear dataset
 
 tokenizer:
-  tokenizer_type: bpe_custom
+  tokenizer_type: tiktoken
   vocab_size: 50257
   # always 50257 for gpt model checkpoints
 
 model:
-  n_embd: 512
-  n_layers: 16
-  n_head: 32
-  dropout: 0.2
+  n_embd: 768
+  n_layers: 12
+  n_head: 12
+  dropout: 0
   block_size: 1024 # always 1024 for gpt model checkpoints
+  pretrained: false
 
 training:
-  batch_size: 16
-  train_steps: 10
-  eval_interval: 250
-  eval_iters: 100
+  batch_size: 8
+  total_batch_GA: 16384
+  train_steps: 1000
+  eval_interval: 20
+  eval_iters: 50
   lr: 2e-4
+  set_float32_opti: true
+  set_autocast_opti: true
+  split_ratio: 0.2
+
+

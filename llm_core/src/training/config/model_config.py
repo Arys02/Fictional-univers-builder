@@ -45,4 +45,5 @@ class ExperimentConfig:
             "meta": self.meta,
             "training": self.training,
             "model": self.model,
+            "tokenizer": self.tokenizer,
         }
