@@ -178,3 +178,7 @@ mlruns
 saved_tokenizers
 saved_models
 tokenized
+processed
+extracted_json
+split_xml
+
