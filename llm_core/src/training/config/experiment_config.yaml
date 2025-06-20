@@ -1,8 +1,8 @@
 meta:
-  experiment_name: gpt2_shakespear
+  experiment_name: gpt2_wikipedia
   model_name: gpt2
-  dataset: sheakspear
-  notes: testing gpt2 implementation with shakespear dataset
+  dataset: fantasy_wikipedia
+  notes: builing gpt2 with wikipedia
 
 tokenizer:
   tokenizer_type: tiktoken
@@ -26,6 +26,6 @@ training:
   lr: 2e-4
   set_float32_opti: true
   set_autocast_opti: true
-  split_ratio: 0.2
+  split_ratio: 0.1
 
 

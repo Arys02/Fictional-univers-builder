@@ -1,10 +1,13 @@
 import json
+from array import array
 from collections import OrderedDict
 
 from tqdm import tqdm
 
 from llm_core.config import SAVED_TOKENIZER_DIR, RAW_DATA_DIR
 from llm_core.src.tokenizer.base_tokenizer import BaseTokenizer
+from collections import Counter
+import numpy as np
 
 
 class BPETokenizer(BaseTokenizer):
@@ -17,13 +20,18 @@ class BPETokenizer(BaseTokenizer):
                 raw = json.load(f)
                 self.bpe_table = OrderedDict({int(k): tuple(v) for k, v in raw.items()})
 
-    def train(self, dataset_name, max_token=256):
-        with open(RAW_DATA_DIR / f'{dataset_name}.txt', 'r', encoding='utf-8') as f:
-            text = f.read()
-        tokens = list(map(int, text.encode("utf-8")))
+
+    def train(self, dataset_name, dataset_dir, max_token=256):
+        print("opening file")
+        tokens = []
+        with open(dataset_dir / f'{dataset_name}.txt', 'r', encoding='utf-8') as f:
+            for line in tqdm(f):
+                tokens.extend(list(map(int,line.encode("utf-8"))))
+
+        print("tokenizing text")
         max_token = max_token - 256
         BPE: OrderedDict = OrderedDict()
-        new_tokens: list = list(tokens)
+        new_tokens: list = tokens
         keys_tokens = -1
         for _ in tqdm(range(max_token)):
             did_changed = True

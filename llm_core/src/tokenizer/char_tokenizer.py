@@ -34,5 +34,5 @@ class CharTokenizer(BaseTokenizer):
             self.stoi = {ch: i for i, ch in enumerate(self.alphabet)}
             self.itos = {i: ch for i, ch in enumerate(self.alphabet)}
 
-    def train(self, text):
+    def train(self, text, directory, max_tokens=10):
         pass

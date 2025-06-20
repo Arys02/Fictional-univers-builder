@@ -21,16 +21,7 @@ tokenizer_name = config.tokenizer['tokenizer_name']
 
 logger.info(f"Tokenizer name : {tokenizer_name}")
 
-#tokenizer = CharTokenizer(config.meta['dataset'])
-#tokenizer = BPETokenizer(tokenizer_name)
-# tokenizer = BPETokenizer()
-# tokenizer.train(config.meta['dataset'], config.tokenizer['vocab_size'])
-# tokenizer.save(SAVED_TOKENIZER_DIR / f'{tokenizer_name}.json')
-
-
-## to factorize in another dataset handler
 logger.info(f"Configuration json :{config.to_dict()}")
-# data = torch.tensor(tokenizer.encode(text), dtype=torch.long, device=config.device)
 
 data = DataLoader.fromTokens(type=config.tokenizer['tokenizer_type'], dataset=config.meta['dataset'],
                              vocab_size=config.tokenizer['vocab_size'], device=config.device)
@@ -53,8 +44,7 @@ with mlflow.start_run():
 
     mlflow.log_param("device", config.device)
     mlflow.log_param("tokenized_dataset_file", TOKENIZED_DATA_DIR / f'{tokenizer_name}.pt')
-    mlflow.set_tag("tokenizer_path", str(SAVED_TOKENIZER_DIR / f'{tokenizer_name}.json'))
-    # mlflow.log_artifact(SAVED_TOKENIZER_DIR / f'{tokenizer_name}.json', artifact_path='tokenizer')
+    #mlflow.set_tag("tokenizer_path", str(SAVED_TOKENIZER_DIR / f'{tokenizer_name}.json'))
     mlflow.log_artifact(EXPERIMENTS_CONFIG_DIR / 'experiment_config.yaml', artifact_path='config')
 
     trainer.train()

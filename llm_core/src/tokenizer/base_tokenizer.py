@@ -19,5 +19,5 @@ class BaseTokenizer(ABC):
         pass
 
     @abstractmethod
-    def train(self, corpus, max_token=256):
+    def train(self, corpus, corpus_dir, max_token=256):
         pass
