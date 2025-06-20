@@ -22,6 +22,7 @@ class ExperimentConfig:
 
         self.config = c['model'] | c['training'] | c['meta'] | c['tokenizer']
         self.config['lr'] = float(self.config['lr'])
+        self.config['checkpoint_dir'] = "./checkpoints"
 
     def __getattr__(self, value):
         config = self.__dict__.get("config", {})

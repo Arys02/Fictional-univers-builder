@@ -19,13 +19,14 @@ model:
 
 training:
   batch_size: 8
-  total_batch_GA: 16384
-  train_steps: 1000
-  eval_interval: 20
-  eval_iters: 50
+  total_batch_GA: 131072
+  train_steps: 3000
+  eval_interval: 100
+  eval_iters: 25
   lr: 2e-4
   set_float32_opti: true
   set_autocast_opti: true
   split_ratio: 0.1
+  model_checkpoint: 200
 
 

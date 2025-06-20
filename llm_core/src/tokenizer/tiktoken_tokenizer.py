@@ -59,7 +59,7 @@ class TiktokenTokenizer(BaseTokenizer):
         return tokens
 
     def decode(self, tokens):
-        pass
+        return self.encoder.decode(tokens)
 
     def save(self, path):
         pass

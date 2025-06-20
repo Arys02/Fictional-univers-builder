@@ -13,7 +13,7 @@ class DataLoader:
         self.val_data = None
         self.train_data = None
         if type == 'tokens':
-            self.tokens = torch.load(path).to(device)
+            self.tokens = torch.load(path).to(dtype=torch.int64).to(device)
         elif type == 'raw':
             with open(path, 'r', encoding='utf-8') as f:
                 self.rawdata = f.read()

@@ -1,5 +1,7 @@
 import math
+import os
 import time
+from pathlib import Path
 
 import mlflow
 import torch
@@ -19,16 +21,6 @@ class Trainer:
         self.dataloader = data_loader
         self.train_data, self.val_data = data_loader.split(model_config.split_ratio)
         self.model_config: ExperimentConfig = model_config
-
-    # def get_batch(self, dataset):
-    #     ix = torch.randint(len(dataset) - self.model_config.block_size, (self.model_config.batch_size,))
-    #
-    #     xi = [dataset[x:x + self.model_config.block_size] for x in ix]
-    #     yi = [dataset[x + 1:x + self.model_config.block_size + 1] for x in ix]
-    #
-    #     x = torch.stack(xi)
-    #     y = torch.stack(yi)
-    #     return x.to(self.model_config.device), y.to(self.model_config.device)
 
     @torch.no_grad()
     def estimated_loss(self):
@@ -62,6 +54,31 @@ class Trainer:
         coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
         return min_lr + coeff * (max_lr - min_lr)
 
+    def save_checkpoint(self, step):
+        Path(self.model_config.checkpoint_dir).mkdir(parents=True, exist_ok=True)
+        checkpoint_path = os.path.join(
+            self.model_config.checkpoint_dir, f"checkpoint_step_{step}.pt"
+        )
+
+        torch.save({
+            'step': step,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+        }, checkpoint_path)
+        logger.info(f"Checkpoint saved at step {step} → {checkpoint_path}")
+
+    def load_checkpoint(self, checkpoint_path):
+        if os.path.isfile(checkpoint_path):
+            checkpoint = torch.load(checkpoint_path, map_location=self.model_config.device)
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            start_step = checkpoint['step'] + 1
+            logger.info(f"Checkpoint loaded → resuming from step {start_step}")
+            return start_step
+        else:
+            logger.warning(f"No checkpoint found at {checkpoint_path}, starting from scratch.")
+            return 0
+
     def train(self):
         logger.info(f"Trainer: Start Training pipeline")
         B, T = self.model_config.batch_size, self.model_config.block_size
@@ -76,6 +93,7 @@ class Trainer:
             torch.set_float32_matmul_precision('high')
 
         loss_accum = 0.0
+        # start_step = self.load_checkpoint("checkpoints/checkpoint_step_500.pt")
         for step in tqdm(range(self.model_config.train_steps)):
             last_step = (step == self.model_config.train_steps - 1)
             t0 = time.time()
@@ -136,10 +154,22 @@ class Trainer:
                 param_group['lr'] = lr
 
             self.optimizer.step()
+
+            dt_checkpoint = 0.
+
+            if self.model_config.model_checkpoint > 0:
+                if step % self.model_config.model_checkpoint == 0 or last_step:
+                    t0_check = time.time()
+                    self.save_checkpoint(step)
+                    t1_check = time.time()
+                    dt_checkpoint = t1_check - t0_check
+
             t1 = time.time()
             torch.cuda.synchronize()
-            dt = (t1 - t0) - dt_val
+            dt = (t1 - t0) - dt_val - dt_checkpoint
 
+            if step == 0:
+                continue
             mlflow.log_metric("time", dt * 1000, step=step)
             mlflow.log_metric("tok/sec", (B * T * grad_acc_step) / dt, step=step)
             mlflow.log_metric("lr", lr, step=step)
