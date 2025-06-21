@@ -122,3 +122,4 @@ gcloud run services update fictional-universe-web \
 il faut arreter manuellement la VM quand on a finit,
 et on la relance avec:
 gcloud compute instances start ollama-server
+ATTENTION éventuellement mettre à jour l'IP de la VM si elle change
