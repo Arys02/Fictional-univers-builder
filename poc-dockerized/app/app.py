@@ -313,6 +313,11 @@ def db_info():
 
 
 # À la fin du fichier, modifiez la partie où vous démarrez l'application
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=True)  # Ajoutez host='0.0.0.0'
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 5000)))
+    args = parser.parse_args()
+    
+    app.run(host=args.host, port=args.port, debug=False)
