@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block content %}
+    {% if error %}
+        <div class="card" style="border-left: 4px solid #ff4444;">
+            <h3><i class="fas fa-exclamation-triangle"></i> Erreur</h3>
+            <p>{{ error }}</p>
+        </div>
+    {% else %}
+        <!-- Navigation entre univers -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div>
+                    <a href="{{ url_for('wiki_home') }}" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-arrow-left"></i> Retour au Wiki
+                    </a>
+                </div>
+                <div class="universe-nav">
+                    {% for univ in all_universes %}
+                        <a href="{{ url_for('wiki_universe', univers_id=univ.id) }}" 
+                           class="{% if univ.id == univers_id %}active{% endif %}">
+                            {{ univ.name }}
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- En-tête de l'univers -->
+        <div class="card" style="background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);">
+            <h1><i class="fas fa-globe"></i> {{ universe.name }}</h1>
+            {% if universe.description %}
+                <div style="background-color: rgba(140, 82, 255, 0.1); padding: 1.5rem; border-radius: 8px; border-left: 4px solid var(--accent);">
+                    <p style="font-size: 1.1rem; line-height: 1.8; margin: 0;">{{ universe.description }}</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Statistiques rapides -->
+        <div class="card">
+            <h2><i class="fas fa-chart-bar"></i> Aperçu de l'Univers</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">{{ factions|length }}</div>
+                    <div class="stat-label">Factions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ locations|length }}</div>
+                    <div class="stat-label">Lieux</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ cultures|length }}</div>
+                    <div class="stat-label">Cultures</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ characters|length }}</div>
+                    <div class="stat-label">Personnages</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ quests|length }}</div>
+                    <div class="stat-label">Quêtes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ items|length }}</div>
+                    <div class="stat-label">Objets</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Factions -->
+        {% if factions %}
+        <div class="card">
+            <h2><i class="fas fa-flag"></i> Factions</h2>
+            <div class="wiki-grid">
+                {% for faction in factions %}
+                <div class="wiki-card" style="border-left-color: var(--accent);">
+                    <h3 style="color: var(--accent); margin-bottom: 0.5rem;">{{ faction.name }}</h3>
+                    {% if faction.description %}
+                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ faction.description }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Lieux -->
+        {% if locations %}
+        <div class="card">
+            <h2><i class="fas fa-map-marker-alt"></i> Lieux</h2>
+            <div class="wiki-grid">
+                {% for location in locations %}
+                <div class="wiki-card" style="border-left-color: #4CAF50;">
+                    <h3 style="color: #4CAF50; margin-bottom: 0.5rem;">{{ location.name }}</h3>
+                    {% if location.description %}
+                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ location.description }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Cultures -->
+        {% if cultures %}
+        <div class="card">
+            <h2><i class="fas fa-users"></i> Cultures</h2>
+            <div class="wiki-grid">
+                {% for culture in cultures %}
+                <div class="wiki-card" style="border-left-color: #FF9800;">
+                    <h3 style="color: #FF9800; margin-bottom: 0.5rem;">{{ culture.name }}</h3>
+                    {% if culture.description %}
+                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ culture.description }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Personnages -->
+        {% if characters %}
+        <div class="card">
+            <h2><i class="fas fa-user"></i> Personnages</h2>
+            <div class="wiki-grid">
+                {% for character in characters %}
+                <div class="wiki-card" style="border-left-color: #E91E63;">
+                    <h3 style="color: #E91E63; margin-bottom: 0.5rem;">{{ character.name }}</h3>
+                    {% if character.description %}
+                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ character.description }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Quêtes -->
+        {% if quests %}
+        <div class="card">
+            <h2><i class="fas fa-scroll"></i> Quêtes</h2>
+            <div class="wiki-grid">
+                {% for quest in quests %}
+                <div class="wiki-card" style="border-left-color: #9C27B0;">
+                    <h3 style="color: #9C27B0; margin-bottom: 0.5rem;">{{ quest.name }}</h3>
+                    {% if quest.description %}
+                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ quest.description }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Objets -->
+        {% if items %}
+        <div class="card">
+            <h2><i class="fas fa-gem"></i> Objets</h2>
+            <div class="wiki-grid">
+                {% for item in items %}
+                <div class="wiki-card" style="border-left-color: #FFD700;">
+                    <h3 style="color: #FFD700; margin-bottom: 0.5rem;">{{ item.name }}</h3>
+                    {% if item.description %}
+                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ item.description }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Créatures -->
+        {% if creatures %}
+        <div class="card">
+            <h2><i class="fas fa-dragon"></i> Créatures</h2>
+            <div class="wiki-grid">
+                {% for creature in creatures %}
+                <div class="wiki-card" style="border-left-color: #F44336;">
+                    <h3 style="color: #F44336; margin-bottom: 0.5rem;">{{ creature.name }}</h3>
+                    {% if creature.description %}
+                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ creature.description }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Événements -->
+        {% if events %}
+        <div class="card">
+            <h2><i class="fas fa-calendar-alt"></i> Événements</h2>
+            <div class="wiki-grid">
+                {% for event in events %}
+                <div class="wiki-card" style="border-left-color: #00BCD4;">
+                    <h3 style="color: #00BCD4; margin-bottom: 0.5rem;">{{ event.name }}</h3>
+                    {% if event.description %}
+                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ event.description }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Technologies/Magie -->
+        {% if tech_magic %}
+        <div class="card">
+            <h2><i class="fas fa-magic"></i> Technologies & Magie</h2>
+            <div class="wiki-grid">
+                {% for tech in tech_magic %}
+                <div class="wiki-card" style="border-left-color: #673AB7;">
+                    <h3 style="color: #673AB7; margin-bottom: 0.5rem;">{{ tech.name }}</h3>
+                    {% if tech.description %}
+                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ tech.description }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- État vide si aucun contenu -->
+        {% if not factions and not locations and not cultures and not characters and not quests and not items and not creatures and not events and not tech_magic %}
+        <div class="card">
+            <div style="text-align: center; padding: 3rem;">
+                <i class="fas fa-scroll" style="font-size: 4rem; color: var(--accent); opacity: 0.5; margin-bottom: 1rem;"></i>
+                <h3 style="color: var(--text-secondary); margin-bottom: 1rem;">Aucun contenu trouvé</h3>
+                <p style="color: var(--text-secondary);">Cet univers n'a pas encore de contenu. Utilisez le générateur LLM pour créer des éléments.</p>
+                <a href="/" class="btn-secondary" style="text-decoration: none; margin-top: 1rem; display: inline-block;">
+                    <i class="fas fa-plus"></i> Créer du contenu
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    {% endif %}
+{% endblock %} 

@@ -1,53 +1,188 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1>D&D Universe Builder</h1>
+    <h1><i class="fas fa-search"></i> Assistant RAG - Recherche & Mise à jour</h1>
 
-    <form method="post" action="{{ url_for('rag_page') }}">
-        <h2>Select Universe:</h2>
-        <select name="universe" required>
-            <option value="">Choose a universe...</option>
-            {% for universe in universes %}
-                <option value="{{ universe.id }}" {% if selected_universe == universe.id %}selected{% endif %}>
-                    {{ universe.name }}
-                </option>
-            {% endfor %}
-        </select>
-
-        <h2>Select Action:</h2>
-        <select name="action" required>
-            <option value="ask" {% if action == 'ask' %}selected{% endif %}>Ask a Question</option>
-            <option value="update" {% if action == 'update' %}selected{% endif %}>Update Universe</option>
-        </select>
-
-        <h2>Enter your input:</h2>
-        <textarea name="question" required>{{ question or '' }}</textarea>
-
-        {% if previous_response %}
-            <div style="margin-top: 10px; padding: 10px; background-color: #f8f9fa; border: 1px solid #ddd;">
-                <h3>Previous Response:</h3>
-                <div style="white-space: pre-wrap;">{{ previous_response }}</div>
+    <div class="card">
+        <h2><i class="fas fa-cog"></i> Configuration</h2>
+        <form method="post" action="{{ url_for('rag_page') }}">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label for="universe" style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">
+                        <i class="fas fa-globe"></i> Univers
+                    </label>
+                    <select name="universe" id="universe" required style="width: 100%;">
+                        <option value="">Choisir un univers...</option>
+                        {% for universe in universes %}
+                            <option value="{{ universe.id }}" {% if selected_universe == universe.id %}selected{% endif %}>
+                                {{ universe.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="action" style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">
+                        <i class="fas fa-tasks"></i> Action
+                    </label>
+                    <select name="action" id="action" required style="width: 100%;">
+                        <option value="ask" {% if action == 'ask' %}selected{% endif %}>
+                            <i class="fas fa-question-circle"></i> Poser une question
+                        </option>
+                        <option value="update" {% if action == 'update' %}selected{% endif %}>
+                            <i class="fas fa-edit"></i> Mettre à jour l'univers
+                        </option>
+                    </select>
+                </div>
             </div>
-        {% endif %}
 
-        <button type="submit">Submit</button>
-    </form>
+            <div>
+                <label for="question" style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">
+                    <i class="fas fa-comment"></i> Votre demande
+                </label>
+                <textarea name="question" id="question" required placeholder="Posez votre question ou décrivez la modification à apporter...">{{ question or '' }}</textarea>
+            </div>
 
-    {% if error %}
-        <div style="color: red; margin-top: 20px;">
-            <h2>Error:</h2>
-            <pre>{{ error }}</pre>
+            <!-- Suggestions de questions -->
+            <div id="suggestions" style="margin-top: 1rem; display: none;">
+                <h3 style="color: var(--text-secondary); margin-bottom: 0.5rem;">
+                    <i class="fas fa-lightbulb"></i> Suggestions de questions
+                </h3>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    <button type="button" class="suggestion-btn" onclick="setQuestion('Quelles sont les factions principales de cet univers ?')">
+                        Factions principales
+                    </button>
+                    <button type="button" class="suggestion-btn" onclick="setQuestion('Décris-moi les lieux importants')">
+                        Lieux importants
+                    </button>
+                    <button type="button" class="suggestion-btn" onclick="setQuestion('Quelles sont les cultures présentes ?')">
+                        Cultures
+                    </button>
+                    <button type="button" class="suggestion-btn" onclick="setQuestion('Raconte-moi l\'histoire de cet univers')">
+                        Histoire de l'univers
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" style="margin-top: 1rem;">
+                <i class="fas fa-paper-plane"></i> Envoyer
+            </button>
+        </form>
+    </div>
+
+    <!-- Validation de mise à jour -->
+    {% if pending_validation %}
+        <div class="card" style="border-left: 4px solid #faad14;">
+            <h3 style="color: #faad14;">
+                <i class="fas fa-exclamation-triangle"></i> Vérification de la mise à jour
+            </h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                Voici ce que cette action va modifier dans la base de données :
+            </p>
+
+            <div style="background-color: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                {{ readable_table|safe }}
+            </div>
+
+            <form method="post" style="display: flex; gap: 1rem; align-items: center;">
+                <input type="hidden" name="action" value="update">
+                <input type="hidden" name="question" value="{{ question }}">
+                <input type="hidden" name="universe" value="{{ selected_universe }}">
+                <input type="hidden" name="confirm" value="yes">
+
+                <button type="submit" style="background-color: #52c41a; color: white;">
+                    <i class="fas fa-check"></i> Confirmer la mise à jour
+                </button>
+                <a href="{{ url_for('rag_page') }}" class="btn-secondary" style="text-decoration: none;">
+                    <i class="fas fa-times"></i> Annuler
+                </a>
+            </form>
+            
+            {% if generated_sql %}
+                <div style="margin-top: 1rem;">
+                    <button onclick="toggleSQL()" class="btn-secondary" style="border: none;">
+                        <i class="fas fa-code"></i> Voir le SQL généré
+                    </button>
+                    <div id="sql-box" style="display: none; margin-top: 1rem; padding: 1rem; background-color: var(--bg-tertiary); border-radius: 8px; font-family: 'Courier New', monospace; font-size: 0.9rem; overflow-x: auto;">
+                        {{ generated_sql }}
+                    </div>
+                </div>
+            {% endif %}
         </div>
     {% endif %}
 
+    <!-- Réponse -->
     {% if response %}
-        <h2>LLM Response:</h2>
-        <div style="white-space: pre-wrap; border: 1px solid #ddd; padding: 10px;">
-            {{ response }}
+        <div class="card">
+            {% if action == "update" %}
+                <div style="border-left: 4px solid #52c41a; padding-left: 1rem;">
+                    <h3 style="color: #52c41a;">
+                        <i class="fas fa-check-circle"></i> Mise à jour réussie
+                    </h3>
+                    <div style="color: var(--text-secondary);">{{ response }}</div>
+                </div>
+            {% else %}
+                <div style="border-left: 4px solid var(--accent); padding-left: 1rem;">
+                    <h3 style="color: var(--accent);">
+                        <i class="fas fa-comment-dots"></i> Réponse
+                    </h3>
+                    <div style="color: var(--text-secondary); line-height: 1.6;">{{ response }}</div>
+                </div>
+            {% endif %}
         </div>
-
-        {% if parsed %}
-            <h2>Parsed Data:</h2>
-            <pre>{{ parsed }}</pre>
-        {% endif %}
     {% endif %}
+
+    <!-- Erreur -->
+    {% if error %}
+        <div class="card" style="border-left: 4px solid #ff4444;">
+            <h3 style="color: #ff4444;">
+                <i class="fas fa-exclamation-circle"></i> Erreur
+            </h3>
+            <div style="color: var(--text-secondary);">{{ error }}</div>
+        </div>
+    {% endif %}
+
+    <style>
+        .suggestion-btn {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+        
+        .suggestion-btn:hover {
+            background-color: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+    </style>
+
+    <script>
+        function setQuestion(text) {
+            document.getElementById('question').value = text;
+        }
+        
+        function toggleSQL() {
+            const box = document.getElementById("sql-box");
+            box.style.display = box.style.display === "none" ? "block" : "none";
+        }
+        
+        // Afficher les suggestions quand "Poser une question" est sélectionné
+        document.getElementById('action').addEventListener('change', function() {
+            const suggestions = document.getElementById('suggestions');
+            if (this.value === 'ask') {
+                suggestions.style.display = 'block';
+            } else {
+                suggestions.style.display = 'none';
+            }
+        });
+        
+        // Initialiser l'affichage des suggestions
+        if (document.getElementById('action').value === 'ask') {
+            document.getElementById('suggestions').style.display = 'block';
+        }
+    </script>
 {% endblock %}

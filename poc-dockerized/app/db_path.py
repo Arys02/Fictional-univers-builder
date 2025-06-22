@@ -12,4 +12,6 @@ def get_db_path():
     db_path = os.path.join(project_root, db_name)
     
     print(f"Using database at: {db_path}")
-    return db_path
+
+    return 'poc-dockerized/database.db'
+    # return db_path
