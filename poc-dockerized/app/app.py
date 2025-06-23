@@ -15,7 +15,7 @@ from llm_call import (
     ask_culture_extraction,
 )
 from db_path import get_db_path
-from rag import rag_answer, rag_update_db
+from rag import rag_answer, rag_update_db, pretty_sql
 
 app = Flask(__name__)
 
@@ -28,6 +28,7 @@ Ne pauses pas de questions, tu dois tout générer dans ta réponse.
 # import os
 
 def get_db_connection():
+    # conn = sqlite3.connect(get_db_path())
     conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     return conn
@@ -157,34 +158,114 @@ def prompt_page():
             return render_template("prompt.html", prompt=prompt, error=str(e))
 
     return render_template("prompt.html")
-
+    
 @app.route("/rag", methods=["GET", "POST"])
 def rag_page():
     conn = get_db_connection()
     print("Connected to database")
 
-    # Get list of universes
     universes = conn.execute("SELECT * FROM univers").fetchall()
-    
 
     if request.method == "POST":
-        if request.form.get("action") == "update":
-            question = request.form.get("question")
-            univers_id = request.form.get("universe")
+        question = request.form.get("question")
+        univers_id = request.form.get("universe")
+        action = request.form.get("action")
+
+        if action == "update":
             script = rag_update_db(question, univers_id)
-            print(script)
-            conn.execute(script)
-            conn.commit()
-            conn.close()
-            return render_template("rag.html", response=script, universes=universes, question=question, univers_id=univers_id)
+
+            # Vérification des opérations interdites
+            dangerous_keywords = ["drop", "delete", "truncate", "alter"]
+            lowered_script = script.lower()
+            if any(keyword in lowered_script for keyword in dangerous_keywords):
+                error = "⛔ Le script SQL généré contient une opération interdite (DROP, DELETE, etc.). Veuillez reformuler votre requête."
+                conn.close()
+                return render_template("rag.html",
+                                    universes=universes,
+                                    question=question,
+                                    selected_universe=univers_id,
+                                    action="update",
+                                    error=error)
+
+            if request.form.get("confirm") == "yes":
+                try:
+                    conn.execute(script)
+                    conn.commit()
+                    
+                    # Vider le cache pour cet univers après mise à jour
+                    from rag import clear_cache
+                    clear_cache(int(univers_id))
+                    
+                    conn.close()
+                    message = "✅ Mise à jour effectuée avec succès. Le cache a été vidé pour refléter les changements."
+                    return render_template("rag.html",
+                                           response=message,
+                                           universes=universes,
+                                           question=question,
+                                           selected_universe=univers_id,
+                                           action=action)
+                except Exception as e:
+                    conn.rollback()
+                    conn.close()
+                    error = f"❌ Erreur lors de la mise à jour : {str(e)}"
+                    return render_template("rag.html",
+                                        universes=universes,
+                                        question=question,
+                                        selected_universe=univers_id,
+                                        action=action,
+                                        error=error)
+            else:
+                readable_table = pretty_sql(script)
+                conn.close()
+                return render_template("rag.html",
+                                       readable_table=readable_table,
+                                       universes=universes,
+                                       question=question,
+                                       selected_universe=univers_id,
+                                       action=action,
+                                       generated_sql=script,
+                                       pending_validation=True)
+
         else:
-            question = request.form.get("question")
-            univers_id = request.form.get("universe")
-            response = rag_answer(question, univers_id)
-            conn.close()
-        return render_template("rag.html", response=response, universes=universes, question=question, univers_id=univers_id)
+            try:
+                response = rag_answer(question, int(univers_id))
+                conn.close()
+                return render_template("rag.html",
+                                       response=response,
+                                       universes=universes,
+                                       question=question,
+                                       selected_universe=univers_id,
+                                       action=action)
+            except Exception as e:
+                conn.close()
+                error = f"❌ Erreur lors de la recherche : {str(e)}"
+                return render_template("rag.html",
+                                    universes=universes,
+                                    question=question,
+                                    selected_universe=univers_id,
+                                    action=action,
+                                    error=error)
+
     return render_template("rag.html", universes=universes)
-    
+
+@app.route("/rag/clear-cache", methods=["POST"])
+def clear_rag_cache():
+    """Route pour vider le cache RAG"""
+    try:
+        from rag import clear_cache
+        univers_id = request.form.get("univers_id")
+        
+        if univers_id:
+            clear_cache(int(univers_id))
+            message = f"Cache vidé pour l'univers {univers_id}"
+        else:
+            clear_cache()
+            message = "Cache complètement vidé"
+            
+        return {"success": True, "message": message}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 @app.route("/wiki")
 def wiki_home():
     try:
@@ -197,11 +278,62 @@ def wiki_home():
         ).fetchall()
         print(f"Found {len(tables)} tables: {[t[0] for t in tables]}")
 
+        # Get list of universes for the new wiki view
+        universes = conn.execute("SELECT id, name FROM univers ORDER BY id DESC").fetchall()
+        print(f"Found {len(universes)} universes")  
+
         conn.close()
-        return render_template("wiki_home.html", tables=tables)
+        return render_template("wiki_home.html", tables=tables, universes=universes)
     except Exception as e:
         print(f"Error in wiki_home: {str(e)}")
-        return render_template("wiki_home.html", error=str(e), tables=[])
+        return render_template("wiki_home.html", error=str(e), tables=[], universes=[])
+
+@app.route("/wiki/universe/<int:univers_id>")
+def wiki_universe(univers_id):
+    try:
+        conn = get_db_connection()
+        print(f"Connected to database for universe: {univers_id}")
+        
+        # Get universe details
+        universe = conn.execute("SELECT * FROM univers WHERE id = ?", (univers_id,)).fetchone()
+        if not universe:
+            conn.close()
+            return render_template("wiki_universe.html", error="Univers non trouvé", univers_id=univers_id)
+        
+        # Get all related data
+        factions = conn.execute("SELECT * FROM faction WHERE univers_id = ?", (univers_id,)).fetchall()
+        locations = conn.execute("SELECT * FROM location WHERE univers_id = ?", (univers_id,)).fetchall()
+        cultures = conn.execute("SELECT * FROM culture WHERE univers_id = ?", (univers_id,)).fetchall()
+        characters = conn.execute("SELECT * FROM character WHERE univers_id = ?", (univers_id,)).fetchall()
+        quests = conn.execute("SELECT * FROM quest WHERE univers_id = ?", (univers_id,)).fetchall()
+        items = conn.execute("SELECT * FROM item WHERE univers_id = ?", (univers_id,)).fetchall()
+        creatures = conn.execute("SELECT * FROM creature WHERE univers_id = ?", (univers_id,)).fetchall()
+        events = conn.execute("SELECT * FROM event WHERE univers_id = ?", (univers_id,)).fetchall()
+        
+        # Get technology/magic
+        tech_magic = conn.execute("SELECT * FROM technology_magic WHERE univers_id = ?", (univers_id,)).fetchall()
+        
+        # Get all universes for navigation
+        all_universes = conn.execute("SELECT id, name FROM univers ORDER BY id DESC").fetchall()
+        
+        conn.close()
+        
+        return render_template("wiki_universe.html", 
+                              universe=universe,
+                              factions=factions,
+                              locations=locations,
+                              cultures=cultures,
+                              characters=characters,
+                              quests=quests,
+                              items=items,
+                              creatures=creatures,
+                              events=events,
+                              tech_magic=tech_magic,
+                              all_universes=all_universes,
+                              univers_id=univers_id)
+    except Exception as e:
+        print(f"Error in wiki_universe route for universe {univers_id}: {str(e)}")
+        return render_template("wiki_universe.html", error=str(e), univers_id=univers_id)
 
 @app.route('/wiki/<table>', methods=['GET'])
 def wiki_table(table):

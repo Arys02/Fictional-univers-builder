@@ -1,22 +1,62 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1>Wiki Browser</h1>
+    <h1><i class="fas fa-book-open"></i> Wiki Browser</h1>
     
     {% if error %}
-        <div style="color: red; margin-bottom: 20px;">
-            <h3>Error:</h3>
+        <div class="card" style="border-left: 4px solid #ff4444;">
+            <h3><i class="fas fa-exclamation-triangle"></i> Erreur</h3>
             <p>{{ error }}</p>
         </div>
     {% endif %}
     
-    <h2>Available Tables:</h2>
-    {% if tables and tables|length > 0 %}
-        <ul>
-            {% for table in tables %}
-                <li><a href="{{ url_for('wiki_table', table=table[0]) }}">{{ table[0] }}</a></li>
-            {% endfor %}
-        </ul>
+    <!-- Section des Univers -->
+    {% if universes and universes|length > 0 %}
+        <div class="card">
+            <h2><i class="fas fa-globe"></i> Univers Disponibles</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
+                {% for universe in universes %}
+                <div style="background-color: var(--bg-tertiary); padding: 1.5rem; border-radius: 8px; border-left: 4px solid var(--accent);">
+                    <h3 style="color: var(--accent); margin-bottom: 0.5rem;">{{ universe.name }}</h3>
+                    {% if universe.description %}
+                        <p style="color: var(--text-secondary); line-height: 1.6; margin-bottom: 1rem;">{{ universe.description[:200] }}{% if universe.description|length > 200 %}...{% endif %}</p>
+                    {% endif %}
+                    <a href="{{ url_for('wiki_universe', univers_id=universe.id) }}" 
+                       class="btn-secondary" 
+                       style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-eye"></i> Voir les détails
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
     {% else %}
-        <p>No tables found in the database. You need to save some data first.</p>
+        <div class="card">
+            <div style="text-align: center; padding: 3rem;">
+                <i class="fas fa-scroll" style="font-size: 4rem; color: var(--accent); opacity: 0.5; margin-bottom: 1rem;"></i>
+                <h3 style="color: var(--text-secondary); margin-bottom: 1rem;">Aucun univers trouvé</h3>
+                <p style="color: var(--text-secondary);">Vous devez d'abord créer et sauvegarder un univers pour le voir ici.</p>
+                <a href="/" class="btn-secondary" style="text-decoration: none; margin-top: 1rem; display: inline-block;">
+                    <i class="fas fa-plus"></i> Créer un univers
+                </a>
+            </div>
+        </div>
+    {% endif %}
+    
+    <!-- Section des Tables (pour debug/administration) -->
+    {% if tables and tables|length > 0 %}
+        <div class="card">
+            <h2><i class="fas fa-database"></i> Tables de la Base de Données</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem;">Vue technique des tables (pour debug et administration)</p>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                {% for table in tables %}
+                    <a href="{{ url_for('wiki_table', table=table[0]) }}" 
+                       class="btn-secondary" 
+                       style="text-decoration: none; text-align: center; padding: 1rem;">
+                        <i class="fas fa-table"></i><br>
+                        {{ table[0] }}
+                    </a>
+                {% endfor %}
+            </div>
+        </div>
     {% endif %}
 {% endblock %}
