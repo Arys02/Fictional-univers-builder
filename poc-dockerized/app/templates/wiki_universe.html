@@ -52,16 +52,16 @@
                     <div class="stat-label">Cultures</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">{{ characters|length }}</div>
+                    <div class="stat-number">{{ personnages|length }}</div>
                     <div class="stat-label">Personnages</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">{{ quests|length }}</div>
-                    <div class="stat-label">Quêtes</div>
+                    <div class="stat-number">{{ objets|length }}</div>
+                    <div class="stat-label">Objets</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">{{ items|length }}</div>
-                    <div class="stat-label">Objets</div>
+                    <div class="stat-number">{{ prompt_answers|length }}</div>
+                    <div class="stat-label">Interactions</div>
                 </div>
             </div>
         </div>
@@ -118,32 +118,15 @@
         {% endif %}
 
         <!-- Personnages -->
-        {% if characters %}
+        {% if personnages %}
         <div class="card">
             <h2><i class="fas fa-user"></i> Personnages</h2>
             <div class="wiki-grid">
-                {% for character in characters %}
+                {% for personnage in personnages %}
                 <div class="wiki-card" style="border-left-color: #E91E63;">
-                    <h3 style="color: #E91E63; margin-bottom: 0.5rem;">{{ character.name }}</h3>
-                    {% if character.description %}
-                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ character.description }}</p>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Quêtes -->
-        {% if quests %}
-        <div class="card">
-            <h2><i class="fas fa-scroll"></i> Quêtes</h2>
-            <div class="wiki-grid">
-                {% for quest in quests %}
-                <div class="wiki-card" style="border-left-color: #9C27B0;">
-                    <h3 style="color: #9C27B0; margin-bottom: 0.5rem;">{{ quest.name }}</h3>
-                    {% if quest.description %}
-                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ quest.description }}</p>
+                    <h3 style="color: #E91E63; margin-bottom: 0.5rem;">{{ personnage.name }}</h3>
+                    {% if personnage.description %}
+                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ personnage.description }}</p>
                     {% endif %}
                 </div>
                 {% endfor %}
@@ -152,15 +135,15 @@
         {% endif %}
 
         <!-- Objets -->
-        {% if items %}
+        {% if objets %}
         <div class="card">
             <h2><i class="fas fa-gem"></i> Objets</h2>
             <div class="wiki-grid">
-                {% for item in items %}
+                {% for objet in objets %}
                 <div class="wiki-card" style="border-left-color: #FFD700;">
-                    <h3 style="color: #FFD700; margin-bottom: 0.5rem;">{{ item.name }}</h3>
-                    {% if item.description %}
-                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ item.description }}</p>
+                    <h3 style="color: #FFD700; margin-bottom: 0.5rem;">{{ objet.name }}</h3>
+                    {% if objet.description %}
+                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ objet.description }}</p>
                     {% endif %}
                 </div>
                 {% endfor %}
@@ -168,50 +151,27 @@
         </div>
         {% endif %}
 
-        <!-- Créatures -->
-        {% if creatures %}
+        <!-- Historique des Interactions -->
+        {% if prompt_answers %}
         <div class="card">
-            <h2><i class="fas fa-dragon"></i> Créatures</h2>
+            <h2><i class="fas fa-comments"></i> Historique des Interactions</h2>
             <div class="wiki-grid">
-                {% for creature in creatures %}
-                <div class="wiki-card" style="border-left-color: #F44336;">
-                    <h3 style="color: #F44336; margin-bottom: 0.5rem;">{{ creature.name }}</h3>
-                    {% if creature.description %}
-                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ creature.description }}</p>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Événements -->
-        {% if events %}
-        <div class="card">
-            <h2><i class="fas fa-calendar-alt"></i> Événements</h2>
-            <div class="wiki-grid">
-                {% for event in events %}
-                <div class="wiki-card" style="border-left-color: #00BCD4;">
-                    <h3 style="color: #00BCD4; margin-bottom: 0.5rem;">{{ event.name }}</h3>
-                    {% if event.description %}
-                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ event.description }}</p>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Technologies/Magie -->
-        {% if tech_magic %}
-        <div class="card">
-            <h2><i class="fas fa-magic"></i> Technologies & Magie</h2>
-            <div class="wiki-grid">
-                {% for tech in tech_magic %}
+                {% for interaction in prompt_answers %}
                 <div class="wiki-card" style="border-left-color: #673AB7;">
-                    <h3 style="color: #673AB7; margin-bottom: 0.5rem;">{{ tech.name }}</h3>
-                    {% if tech.description %}
-                        <p style="color: var(--text-secondary); line-height: 1.6;">{{ tech.description }}</p>
+                    <h3 style="color: #673AB7; margin-bottom: 0.5rem;">
+                        <i class="fas fa-clock"></i> {{ interaction.created_at[:10] if interaction.created_at else 'Date inconnue' }}
+                    </h3>
+                    {% if interaction.prompt %}
+                        <div style="margin-bottom: 1rem;">
+                            <strong style="color: var(--accent);">Prompt:</strong>
+                            <p style="color: var(--text-secondary); line-height: 1.6; margin: 0.5rem 0;">{{ interaction.prompt[:200] }}{% if interaction.prompt|length > 200 %}...{% endif %}</p>
+                        </div>
+                    {% endif %}
+                    {% if interaction.response %}
+                        <div>
+                            <strong style="color: var(--accent);">Réponse:</strong>
+                            <p style="color: var(--text-secondary); line-height: 1.6; margin: 0.5rem 0;">{{ interaction.response[:300] }}{% if interaction.response|length > 300 %}...{% endif %}</p>
+                        </div>
                     {% endif %}
                 </div>
                 {% endfor %}
@@ -220,7 +180,7 @@
         {% endif %}
 
         <!-- État vide si aucun contenu -->
-        {% if not factions and not locations and not cultures and not characters and not quests and not items and not creatures and not events and not tech_magic %}
+        {% if not factions and not locations and not cultures and not personnages and not objets %}
         <div class="card">
             <div style="text-align: center; padding: 3rem;">
                 <i class="fas fa-scroll" style="font-size: 4rem; color: var(--accent); opacity: 0.5; margin-bottom: 1rem;"></i>

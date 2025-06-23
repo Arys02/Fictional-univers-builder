@@ -28,7 +28,6 @@ app = Flask(__name__)
 
 
 def get_db_connection():
-    # conn = sqlite3.connect(get_db_path())
     conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     return conn
@@ -314,18 +313,15 @@ def wiki_universe(univers_id):
             conn.close()
             return render_template("wiki_universe.html", error="Univers non trouvé", univers_id=univers_id)
         
-        # Get all related data
+        # Get all related data using the correct table names
         factions = conn.execute("SELECT * FROM faction WHERE univers_id = ?", (univers_id,)).fetchall()
         locations = conn.execute("SELECT * FROM location WHERE univers_id = ?", (univers_id,)).fetchall()
         cultures = conn.execute("SELECT * FROM culture WHERE univers_id = ?", (univers_id,)).fetchall()
-        characters = conn.execute("SELECT * FROM character WHERE univers_id = ?", (univers_id,)).fetchall()
-        quests = conn.execute("SELECT * FROM quest WHERE univers_id = ?", (univers_id,)).fetchall()
-        items = conn.execute("SELECT * FROM item WHERE univers_id = ?", (univers_id,)).fetchall()
-        creatures = conn.execute("SELECT * FROM creature WHERE univers_id = ?", (univers_id,)).fetchall()
-        events = conn.execute("SELECT * FROM event WHERE univers_id = ?", (univers_id,)).fetchall()
+        personnages = conn.execute("SELECT * FROM personnages WHERE univers_id = ?", (univers_id,)).fetchall()
+        objets = conn.execute("SELECT * FROM objets WHERE univers_id = ?", (univers_id,)).fetchall()
         
-        # Get technology/magic
-        tech_magic = conn.execute("SELECT * FROM technology_magic WHERE univers_id = ?", (univers_id,)).fetchall()
+        # Get prompt answers for this universe
+        prompt_answers = conn.execute("SELECT * FROM prompt_answers WHERE univers_id = ? ORDER BY created_at DESC", (univers_id,)).fetchall()
         
         # Get all universes for navigation
         all_universes = conn.execute("SELECT id, name FROM univers ORDER BY id DESC").fetchall()
@@ -337,12 +333,9 @@ def wiki_universe(univers_id):
                               factions=factions,
                               locations=locations,
                               cultures=cultures,
-                              characters=characters,
-                              quests=quests,
-                              items=items,
-                              creatures=creatures,
-                              events=events,
-                              tech_magic=tech_magic,
+                              personnages=personnages,
+                              objets=objets,
+                              prompt_answers=prompt_answers,
                               all_universes=all_universes,
                               univers_id=univers_id)
     except Exception as e:

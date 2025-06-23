@@ -387,14 +387,16 @@ if __name__ == "__main__":
     # index = create_faiss_index(concat_df, model)
 
     # question = "Quelles sont les factions présentes dans l'univers ?"
-    question = "Rajoute moi la faction des Singes Géants, rajoute y une description"
-    # results = search(question, concat_df, model, index)
+    # question = "Rajoute moi la faction des Singes Géants, rajoute y une description"
+    # # results = search(question, concat_df, model, index)
 
-    # print(rag_answer(question, 2))
-    script = rag_update_db(question, 3)
-    conn = sqlite3.connect('database.db')
-    cursor = conn.cursor()
-    cursor.execute(script)
-    conn.commit()
-    conn.close()
+    # # print(rag_answer(question, 2))
+    # script = rag_update_db(question, 3)
+    # conn = sqlite3.connect('database.db')
+    # cursor = conn.cursor()
+    # cursor.execute(script)
+    # conn.commit()
+    # conn.close()
+
+    print(get_all_table_schemas('poc-dockerized/database.db'))
 
