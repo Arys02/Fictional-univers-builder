@@ -17,11 +17,41 @@ def init_db():
             cursor = conn.cursor()
             
             # Créer les tables
-            cursor.execute('CREATE TABLE IF NOT EXISTS univers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT)')
-            cursor.execute('CREATE TABLE IF NOT EXISTS faction (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, univers_id INTEGER)')
-            cursor.execute('CREATE TABLE IF NOT EXISTS location (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, univers_id INTEGER)')
-            cursor.execute('CREATE TABLE IF NOT EXISTS culture (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, univers_id INTEGER)')
-            
+            cursor.execute('CREATE TABLE IF NOT EXISTS univers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, created_at TIMESTAMP)')
+            cursor.execute('CREATE TABLE IF NOT EXISTS faction (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, univers_id INTEGER, created_at TIMESTAMP)')
+            cursor.execute('CREATE TABLE IF NOT EXISTS location (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, univers_id INTEGER, created_at TIMESTAMP)')
+            cursor.execute('CREATE TABLE IF NOT EXISTS culture (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, univers_id INTEGER, created_at TIMESTAMP)')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS prompt_answers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    prompt TEXT NOT NULL,
+                    response TEXT NOT NULL,
+                    univers_id INTEGER,
+                    created_at TIMESTAMP,
+                    FOREIGN KEY (univers_id) REFERENCES univers (id)
+                )
+            ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS objets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    univers_id INTEGER,
+                    created_at TIMESTAMP,
+                    FOREIGN KEY (univers_id) REFERENCES univers (id)
+                )
+            ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS personnages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    univers_id INTEGER,
+                    created_at TIMESTAMP,
+                    FOREIGN KEY (univers_id) REFERENCES univers (id)
+                )
+            ''')
+
             conn.commit()
             conn.close()
             print(f"Base de données initialisée avec succès à: {path}")

@@ -1,0 +1,125 @@
+1 - créer fichier cloudbuild.yaml
+2 - gcloud auth login
+3 - créer le projet dans gcp : gcloud projects create fictional-universe-app --name="Fictional Universe Builder"
+4 - récupérer notre identifiant de facturation: gcloud billing accounts list
+5 - joindre le projet à notre identifiant de facturation: gcloud billing projects link fictional-universe-app --billing-account=VOTRE_COMPTE_FACTURATION_ID
+6 - activer le projet: gcloud config set project fictional-universe-app
+7 - activer les API nécessaires :
+gcloud services enable cloudbuild.googleapis.com \
+    artifactregistry.googleapis.com \
+    run.googleapis.com \
+    vpcaccess.googleapis.com \
+    storage.googleapis.com \
+    sqladmin.googleapis.com \
+    compute.googleapis.com
+8 - on configure le Docker sur la bonne région: gcloud auth configure-docker europe-west1-docker.pkg.dev
+9 - on créer le repo sur artifactregistry: gcloud artifacts repositories create fictional-universe \
+    --repository-format=docker \
+    --location=europe-west1 \
+    --description="Repository for Fictional Universe Builder"
+10 - on créée une connection au VPC:
+gcloud compute networks vpc-access connectors create fict-univ-con \
+    --region=europe-west1 \
+    --network=default \
+    --range=10.8.0.0/28
+10bis - définir des roles IAM (premier deploiement failed à cause de ça): gcloud beta run services add-iam-policy-binding --region=europe-west1 --member=allUsers --role=roles/run.invoker fictional-universe-web
+11 - on lance le cloudbuild.yaml pour tout déployer: gcloud builds submit --config=cloudbuild.yaml
+12 - ça build bien tout mais ça aime pas le port pour ollama, il faut faire en plus:
+gcloud run deploy fictional-universe-ollama \
+  --image=ollama/ollama:latest \
+  --region=europe-west1 \
+  --port=11434 \
+  --memory=8Gi \
+  --cpu=4
+
+  ou plutôt:
+  gcloud compute instances create ollama-server \
+  --image-family=debian-11 \
+  --image-project=debian-cloud \
+  --machine-type=n1-standard-4 \
+  --boot-disk-size=50GB \
+  --metadata=startup-script='#! /bin/bash
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sh get-docker.sh
+    docker run -d -p 11434:11434 ollama/ollama'
+
+ensuite il faut connecter ollama:
+gcloud compute instances describe ollama-server --format='get(networkInterfaces[0].accessConfigs[0].natIP)'
+pour chopper l'IP de la VM 
+ensuite :
+
+gcloud run services update fictional-universe-web --region=europe-west1 --set-env-vars=OLLAMA_HOST=http://IP_VM:11434
+
+on authorise le traffic:
+gcloud compute firewall-rules create allow-ollama --allow=tcp:11434 --description="Allow Ollama API access" --direction=INGRESS
+
+on s'assure que ça run:
+gcloud run services add-iam-policy-binding fictional-universe-ollama --region=europe-west1 --member="user:devarieux.clement@gmail.com" --role="roles/run.invoker"
+on met à jour une variable d'environnement:
+gcloud run services update fictional-universe-web --region=europe-west1 --set-env-vars=OLLAMA_HOST=https://fictional-universe-ollama-1069829401679.europe-west1.run.app
+
+on peut vérifier que la VM fonctionne:
+gcloud compute instances list
+
+et qu'on a bien la var d'env OLLAMA_HOST:
+gcloud run services describe fictional-universe-web --region=europe-west1 --format="yaml(spec.template.spec.containers[].env)"
+
+ensuite on va lancer la VM et télécharger llama3.2:
+gcloud compute ssh ollama-server
+
+puis dans la VM:
+# Mettre à jour les paquets
+sudo apt-get update
+
+# Installer les prérequis
+sudo apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+
+# Ajouter la clé GPG Docker
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+# Ajouter le repository Docker
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Mettre à jour et installer Docker
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+
+# Démarrer et activer Docker
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# Exécuter Ollama
+sudo docker run -d -p 11434:11434 ollama/ollama
+
+# Identifier l'ID du conteneur Ollama
+CONTAINER_ID=$(sudo docker ps -q --filter ancestor=ollama/ollama)
+
+# Télécharger le modèle
+sudo docker exec -it $CONTAINER_ID ollama pull llama3.2
+
+# Vérifier que Docker fonctionne
+sudo docker ps
+
+# Vérifier que Ollama répond
+curl http://localhost:11434/api/version
+
+
+après on sort du ssh, on reprend l'ip de la VM 
+gcloud compute instances describe ollama-server --format='get(networkInterfaces[0].accessConfigs[0].natIP)'
+
+on met à jour l'ap avec cet ip:
+gcloud run services update fictional-universe-web --region=europe-west1 --set-env-vars=OLLAMA_HOST=http://VOTRE_IP_RÉELLE:11434
+
+normalement après ça ça marchait de mon côté
+
+non, il faut remettre une var d'environnement;
+gcloud run services update fictional-universe-web \
+  --region=europe-west1 \
+  --update-env-vars=DB_PATH=/tmp/database.db
+
+
+
+il faut arreter manuellement la VM quand on a finit,
+et on la relance avec:
+gcloud compute instances start ollama-server
+ATTENTION éventuellement mettre à jour l'IP de la VM si elle change

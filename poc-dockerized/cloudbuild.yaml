@@ -1,0 +1,72 @@
+steps:
+  # 1. Build et push de l'image web
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/web:${_TAG}', '.']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/web:${_TAG}']
+  
+  # 2. Créer le bucket Cloud Storage pour la base de données (si nécessaire)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: ['storage', 'buckets', 'create', 'gs://${PROJECT_ID}-database', '--location=${_REGION}', '--uniform-bucket-level-access', '--public-access-prevention']
+    id: 'create-bucket'
+    allowFailure: true
+  
+  # 3. Copier la base de données dans le bucket
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args: ['cp', 'database.db', 'gs://${PROJECT_ID}-database/']
+    allowFailure: true
+  
+  # 4. Déployer le service web sur Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'fictional-universe-web'
+      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/web:${_TAG}'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--memory=2Gi'
+      - '--cpu=2'
+      - '--min-instances=0'
+      - '--max-instances=4'
+      - '--set-env-vars=DB_PATH=/tmp/database.db,OLLAMA_HOST=http://fictional-universe-ollama:11434'
+      - '--set-cloudsql-instances=${PROJECT_ID}:${_REGION}:fictional-universe-sql'
+      - '--add-volume=name=db-volume,type=cloud-storage,bucket=${PROJECT_ID}-database'
+      - '--add-volume-mount=volume=db-volume,mount-path=/tmp'
+  
+  # 5. Déployer Ollama sur Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'fictional-universe-ollama'
+      - '--image=ollama/ollama:latest'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--no-allow-unauthenticated'
+      - '--memory=8Gi'
+      - '--cpu=4'
+      - '--min-instances=0'
+      - '--timeout=3600'
+  
+  # 6. Configurer VPC connector pour permettre la communication entre services
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'services'
+      - 'update'
+      - 'fictional-universe-web'
+      - '--region=${_REGION}'
+      - '--vpc-connector=${_VPC_CONNECTOR}'
+      - '--add-cloud-sql-instances=${PROJECT_ID}:${_REGION}:fictional-universe-sql'
+
+substitutions:
+  _REGION: europe-west1
+  _REPOSITORY: fictional-universe
+  _TAG: latest
+  _VPC_CONNECTOR: fict-univ-con
+
+images:
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/web:${_TAG}'

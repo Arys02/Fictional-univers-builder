@@ -2,6 +2,7 @@ import json
 from ollama import ChatResponse, Client
 import sqlite3
 import os 
+from datetime import datetime
 from db_path import get_db_path
 
 # Configuration du client Ollama avec l'hôte du conteneur Docker
@@ -33,7 +34,7 @@ def insert_univers(univers, conn=None):
     try:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO univers (name, description) VALUES (?, ?)",
+            "INSERT INTO univers (name, description, created_at) VALUES (?, ?, datetime('now'))",
             (univers.get("name", ""), univers.get("description", ""))
         )
         
@@ -70,8 +71,8 @@ def insert_factions(factions, univers_id=None, conn=None):
             if name:  # On ignore les entrées sans nom
                 cursor.execute(
                     """
-                    INSERT INTO faction (name, description, univers_id)
-                    VALUES (?, ?, ?)
+                    INSERT INTO faction (name, description, univers_id, created_at)
+                    VALUES (?, ?, ?, datetime('now'))
                     """,
                     (name, description, univers_id),
                 )
@@ -110,8 +111,8 @@ def insert_location(locations, univers_id=None, conn=None):
             if name:  # On ignore les entrées sans nom
                 cursor.execute(
                     """
-                    INSERT INTO location (name, description, univers_id)
-                    VALUES (?, ?, ?)
+                    INSERT INTO location (name, description, univers_id, created_at)
+                    VALUES (?, ?, ?, datetime('now'))
                     """,
                     (name, description, univers_id),
                 )
@@ -150,8 +151,8 @@ def insert_cultures(cultures, univers_id=None, conn=None):
             if name:  # On ignore les entrées sans nom
                 cursor.execute(
                     """
-                    INSERT INTO culture (name, description, univers_id)
-                    VALUES (?, ?, ?)
+                    INSERT INTO culture (name, description, univers_id, created_at)
+                    VALUES (?, ?, ?, datetime('now'))
                     """,
                     (name, description, univers_id),
                 )
@@ -505,3 +506,265 @@ def ask_culture_extraction(response_content):
             retry_content = retry_response.message.content.strip()
             if is_valid_json(retry_content):
                 return json.loads(retry_content)
+
+def insert_prompt_answer(prompt, response, univers_id=None, conn=None):
+    """
+    Insère un prompt et sa réponse dans la base de données.
+    
+    :param prompt: Le prompt envoyé à l'LLM
+    :param response: La réponse complète de l'LLM
+    :param univers_id: ID de l'univers associé (peut être None)
+    :param conn: connexion SQLite existante (optionnel)
+    """
+    close_conn = False
+    if conn is None:
+        conn = sqlite3.connect(get_db_path())
+        close_conn = True
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO prompt_answers (prompt, response, univers_id, created_at)
+            VALUES (?, ?, ?, datetime('now'))
+            """,
+            (prompt, response, univers_id)
+        )
+        
+        if close_conn:
+            conn.commit()
+    finally:
+        if close_conn:
+            conn.close()
+
+
+def ask_objets_extraction(response_content):
+    system_prompt = """Tu es un expert en extraction de données structurées à partir de réponses de modèles de langage.
+        Tu dois extraire les objets importants d'un univers fictif. 
+        Des exemples d'objets seraient par exemple des armes, des artefacts, des objets magiques, des reliques, etc.
+        Attention, les objets que tu trouves doivent correspondrent à ceux présentes dans l'univers donné en input et de manière explicite, n'invente pas d'objets.
+        Le format de sortie doit être strictement un tableau JSON :
+        [
+          {
+            "name": "Nom de l'objet",
+            "description": "Description"
+          }
+        ]
+        Si tu n’en trouves pas, retourne simplement []. Pas d'explication, pas de texte, seulement du JSON."""
+
+    user_prompt = f"Extrait les objets de la réponse suivante :\n\n{response_content}"
+
+    response: ChatResponse = chat(
+        model="llama3.2",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        options={
+            "num_thread": 8,       # Plus de threads
+            "num_gpu": 1,          # Utiliser le GPU si disponible
+            "num_batch": 512,      # Augmenter taille du batch
+            "temperature": 0.7,    # Réduire pour des réponses plus rapides
+            "top_p": 0.9           # Réduire pour des réponses plus rapides
+        }
+    )
+
+    content = response.message.content.strip()
+
+    # Validation du JSON
+    if is_valid_json(content):
+        return json.loads(content)
+    else:
+        counter = 0
+        while not is_valid_json(content) or counter < 100:
+            counter += 1
+            # Relance une deuxième fois avec un prompt explicite
+            retry_prompt = f"""
+                Tu n'as pas respecté le format JSON strict. Voici un rappel :
+                [
+                  {{
+                    "name": "Nom de l'objet",
+                    "description": "Description"
+                  }}
+                ]
+                Pas de texte, pas de commentaire. Corrige la réponse suivante :
+
+                {content}
+                """
+
+            retry_response: ChatResponse = chat(
+                model="llama3.2",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Tu corriges des réponses LLM pour les rendre au bon format JSON.",
+                    },
+                    {"role": "user", "content": retry_prompt},
+                ],
+                options={
+                    "num_thread": 8,       # Plus de threads
+                    "num_gpu": 1,          # Utiliser le GPU si disponible
+                    "num_batch": 512,      # Augmenter taille du batch
+                    "temperature": 0.7,    # Réduire pour des réponses plus rapides
+                    "top_p": 0.9           # Réduire pour des réponses plus rapides
+                }
+            )
+            retry_content = retry_response.message.content.strip()
+            if is_valid_json(retry_content):
+                return json.loads(retry_content)
+            
+
+def insert_objets(objets, univers_id=None, conn=None):
+    """
+    Insère une liste d'objets' dans la base de données SQLite.
+
+    :param cultures: liste de dictionnaires au format :
+        [
+            {"name": "Nom de l'objet", "description": "Texte..."},
+            ...
+        ]
+    :param univers_id: ID de l'univers auquel ces cultures appartiennent
+    :param conn: connexion SQLite existante (optionnel)
+    """
+    close_conn = False
+    if conn is None:
+        conn = sqlite3.connect(get_db_path())
+        close_conn = True
+    
+    try:
+        cursor = conn.cursor()
+
+        for object in objets:
+            name = object.get("name", "").strip()
+            description = object.get("description", "").strip()
+
+            if name:  # On ignore les entrées sans nom
+                cursor.execute(
+                    """
+                    INSERT INTO objets (name, description, univers_id, created_at)
+                    VALUES (?, ?, ?, datetime('now'))
+                    """,
+                    (name, description, univers_id),
+                )
+        
+        if close_conn:
+            conn.commit()
+    finally:
+        if close_conn:
+            conn.close()
+
+
+def ask_personnages_extraction(response_content):
+    system_prompt = """Tu es un expert en extraction de données structurées à partir de réponses de modèles de langage.
+        Tu dois extraire les personnages importants d'un univers fictif. 
+        Des exemples de personnages seraient par exemple des héros, des méchants, des figures historiques, etc.
+        Attention, les personnages que tu trouves doivent correspondrent à ceux présents dans l'univers donné en input et de manière explicite, n'invente pas de personnages.
+        Le format de sortie doit être strictement un tableau JSON :
+        [
+          {
+            "name": "Nom du personnage",
+            "description": "Description"
+          }
+        ]
+        Si tu n’en trouves pas, retourne simplement []. Pas d'explication, pas de texte, seulement du JSON."""
+
+    user_prompt = f"Extrait les objets de la réponse suivante :\n\n{response_content}"
+
+    response: ChatResponse = chat(
+        model="llama3.2",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        options={
+            "num_thread": 8,       # Plus de threads
+            "num_gpu": 1,          # Utiliser le GPU si disponible
+            "num_batch": 512,      # Augmenter taille du batch
+            "temperature": 0.7,    # Réduire pour des réponses plus rapides
+            "top_p": 0.9           # Réduire pour des réponses plus rapides
+        }
+    )
+
+    content = response.message.content.strip()
+
+    # Validation du JSON
+    if is_valid_json(content):
+        return json.loads(content)
+    else:
+        counter = 0
+        while not is_valid_json(content) or counter < 100:
+            counter += 1
+            # Relance une deuxième fois avec un prompt explicite
+            retry_prompt = f"""
+                Tu n'as pas respecté le format JSON strict. Voici un rappel :
+                [
+                  {{
+                    "name": "Nom du personnages",
+                    "description": "Description"
+                  }}
+                ]
+                Pas de texte, pas de commentaire. Corrige la réponse suivante :
+
+                {content}
+                """
+
+            retry_response: ChatResponse = chat(
+                model="llama3.2",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Tu corriges des réponses LLM pour les rendre au bon format JSON.",
+                    },
+                    {"role": "user", "content": retry_prompt},
+                ],
+                options={
+                    "num_thread": 8,       # Plus de threads
+                    "num_gpu": 1,          # Utiliser le GPU si disponible
+                    "num_batch": 512,      # Augmenter taille du batch
+                    "temperature": 0.7,    # Réduire pour des réponses plus rapides
+                    "top_p": 0.9           # Réduire pour des réponses plus rapides
+                }
+            )
+            retry_content = retry_response.message.content.strip()
+            if is_valid_json(retry_content):
+                return json.loads(retry_content)
+            
+
+def insert_personnages(personnages, univers_id=None, conn=None):
+    """
+    Insère une liste de personnages dans la base de données SQLite.
+
+    :param cultures: liste de dictionnaires au format :
+        [
+            {"name": "Nom du personnage", "description": "Texte..."},
+            ...
+        ]
+    :param univers_id: ID de l'univers auquel ces personnages appartiennent
+    :param conn: connexion SQLite existante (optionnel)
+    """
+    close_conn = False
+    if conn is None:
+        conn = sqlite3.connect(get_db_path())
+        close_conn = True
+    
+    try:
+        cursor = conn.cursor()
+
+        for personnage in personnages:
+            name = personnage.get("name", "").strip()
+            description = personnage.get("description", "").strip()
+
+            if name:  # On ignore les entrées sans nom
+                cursor.execute(
+                    """
+                    INSERT INTO personnages (name, description, univers_id, created_at)
+                    VALUES (?, ?, ?, datetime('now'))
+                    """,
+                    (name, description, univers_id),
+                )
+        
+        if close_conn:
+            conn.commit()
+    finally:
+        if close_conn:
+            conn.close()

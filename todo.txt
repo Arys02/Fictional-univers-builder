@@ -1,15 +1,13 @@
-- appel LLM huggingface (OK)
-(- RAG vers des pdf)
 - mettre en place la bdd:
     - Rajouter une date d'ajout de la ligne
     - mettre noms de toutes les colonnes en francais ?
     - rajouter toutes l'alimentation de toutes les tables
-- faire la partie de parsing de réponse du LLM
 - plug le rag/llm à la bdd:
     - faudrait il faire une bdd vectorielle ?
     - j'ai mis faiss sur cpu et non gpu car trop chiant 
     - lors de l'update de la BDD, montrer les modifs et si OK -> commit, sinon rollback
     - lorsque update BDD, rajouter le contexte de l'univers ?
-- streamlit
 - Wiki
     - voir librairie qui crée un wiki
+- déployer sur le cloud
+- plug sur le LLM de Charles
