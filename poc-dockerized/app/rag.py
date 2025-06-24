@@ -108,13 +108,12 @@ def get_text_chunks_from_db(db_path, univers_id):
     cursor = conn.cursor()
 
     # Liste des tables à inclure dans la recherche RAG
-    # Ajout de plus de tables pour une recherche plus complète
+    # Tables correspondant au schéma actuel de la base de données
     cursor.execute("""
         SELECT name FROM sqlite_master 
         WHERE type='table' AND name IN (
             'univers', 'faction', 'location', 'culture', 
-            'character', 'quest', 'item', 'creature', 
-            'event', 'technology_magic'
+            'personnages', 'objets', 'prompt_answers'
         )
     """)
     table_names = [row[0] for row in cursor.fetchall()]
@@ -267,6 +266,8 @@ def rag_update_db(request, univers_id):
 
     is_syntax_valid = False
 
+    count = 0
+
     while not is_syntax_valid:
         prompt = f"""Tu es un assistant qui génère du SQL pour mettre à jour une base SQLite.
 
@@ -321,6 +322,11 @@ def rag_update_db(request, univers_id):
 
         if sql_syntax_valid and sql_content_valid and univers_id_valid:
             is_syntax_valid = True
+
+        count += 1
+        if count > 10:
+            print(clean_response)
+            raise Exception(f"Erreur dans la génération du script SQL, le script SQL généré est : {clean_response}")
 
     return clean_response
 

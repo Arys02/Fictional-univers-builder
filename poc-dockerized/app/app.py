@@ -185,7 +185,17 @@ def rag_page():
         action = request.form.get("action")
 
         if action == "update":
-            script = rag_update_db(question, univers_id)
+            try:
+                script = rag_update_db(question, univers_id)
+            except Exception as e:
+                error = f"❌ Erreur lors de la mise à jour : {str(e)}"
+                conn.close()
+                return render_template("rag.html",
+                                    universes=universes,
+                                    question=question,
+                                    selected_universe=univers_id,
+                                    action="update",
+                                    error=error)
 
             # Vérification des opérations interdites
             dangerous_keywords = ["drop", "delete", "truncate", "alter"]
