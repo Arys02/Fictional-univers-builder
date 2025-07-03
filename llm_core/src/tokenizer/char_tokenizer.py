@@ -1,13 +1,17 @@
 import json
 
-from llm_core.tokenizer.base_tokenizer import BaseTokenizer
-
+from llm_core.config import RAW_DATA_DIR
+from llm_core.src.tokenizer.base_tokenizer import BaseTokenizer
 
 
 class CharTokenizer(BaseTokenizer):
-    def __init__(self, alphabet=None):
-        if alphabet:
-            self.alphabet = alphabet
+    def __init__(self, dataset_name=None):
+        if dataset_name:
+            with open(RAW_DATA_DIR / dataset_name / '.txt', 'r', encoding='utf-8') as f:
+                text = f.read()
+            chars = sorted(list(set(text)))
+            vocab_size = len(chars)
+            self.alphabet = vocab_size
         else:
             self.alphabet = ""
         self.stoi = {ch: i for i, ch in enumerate(self.alphabet)}
@@ -29,3 +33,6 @@ class CharTokenizer(BaseTokenizer):
             self.alphabet = data['alphabet']
             self.stoi = {ch: i for i, ch in enumerate(self.alphabet)}
             self.itos = {i: ch for i, ch in enumerate(self.alphabet)}
+
+    def train(self, text, directory, max_tokens=10):
+        pass

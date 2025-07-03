@@ -1,0 +1,31 @@
+meta:
+  experiment_name: gpt2_wikipedia
+  model_name: gpt2
+  dataset: fantasy_wikipedia
+  notes: builing gpt2 with wikipedia
+
+tokenizer:
+  tokenizer_type: transformers
+  vocab_size: 50257 # always 50257 for gpt model checkpoints
+
+model:
+  n_embd: 768
+  n_layers: 12
+  n_head: 12
+  dropout: 0
+  block_size: 1024 # always 1024 for gpt model checkpoints
+  pretrained: false
+
+training:
+  batch_size: 8
+  total_batch_GA: 65536
+  train_steps: 20000
+  eval_interval: 100
+  eval_iters: 25
+  lr: 2e-4
+  set_float32_opti: true
+  set_autocast_opti: true
+  split_ratio: 0.2
+  model_checkpoint: 1000
+
+

@@ -172,3 +172,14 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+mlruns
+
+saved_tokenizers
+saved_models
+tokenized
+processed
+extracted_json
+split_xml
+checkpoint
+checkpoints

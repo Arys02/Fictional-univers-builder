@@ -1,0 +1,184 @@
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+
+from llm_core.src.tokenizer.char_tokenizer import CharTokenizer
+from llm_core.src.training.config.model_config import ExperimentConfig
+from llm_core.src.training.trainer import Trainer
+
+class Block(nn.Module):
+    def __init__(self, config):
+        n_embd = config.n_embd
+        n_head = config.n_head
+        super().__init__()
+        head_size = n_embd // n_head
+        self.sa_heads = MultiHeadAttention(config, head_size)
+        self.fwd = FeedForwardNet(config)
+        self.ln1 = nn.LayerNorm(n_embd)
+        self.ln2 = nn.LayerNorm(n_embd)
+
+    def forward(self, x):
+        x = x + self.sa_heads.forward(x)
+        x = x + self.fwd.forward(x)
+        return x
+
+
+class FeedForwardNet(nn.Module):
+    def __init__(self, config):
+        n_embd = config.n_embd
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(n_embd, 4 * n_embd),  # on multiplie par 4 c'est ce qu'ils font dans le papier
+            nn.ReLU(),
+            nn.Linear(4 * n_embd, n_embd),
+            nn.Dropout(config.dropout),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, config, head_size):
+        super().__init__()
+        num_heads = config.n_head
+        self.heads = nn.ModuleList(
+            [Head(config, head_size) for _ in range(num_heads)])
+        self.proj = nn.Linear(head_size * num_heads, config.n_embd)
+        self.dropout = nn.Dropout(config.dropout)
+
+    def forward(self, x):
+        out = torch.cat([h(x) for h in self.heads], dim=-1)
+        out = self.proj(out)
+        out = self.dropout(out)
+
+        return out
+
+
+class Head(nn.Module):
+    ## one head of self-attention
+    def __init__(self, config, head_size):
+        n_embd = config.n_embd
+        block_size = config.block_size
+
+        super().__init__()
+        self.key = nn.Linear(n_embd, head_size, bias=False)
+        self.query = nn.Linear(n_embd, head_size, bias=False)
+        self.value = nn.Linear(n_embd, head_size, bias=False)
+        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+        self.dropout = nn.Dropout(config.dropout)
+
+    def forward(self, x):
+        B, T, C = x.shape
+
+        k = self.key(x)
+        q = self.query(x)
+
+        kq = q @ k.transpose(-2, -1) * C ** -0.5
+        kq = kq.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
+        kq = F.softmax(kq, dim=-1)
+        kq = self.dropout(kq)
+
+        v = self.value(x)
+        attention = kq @ v
+        return attention
+
+
+class GPTModel(nn.Module):
+
+    def __init__(self, config: ExperimentConfig):
+        super().__init__()
+        self.config = config.config
+        self.token_embedding_table = nn.Embedding(config.vocab_size, config.n_embd)
+        self.position_embedding_table = nn.Embedding(config.block_size, config.n_embd)
+        self.blocks = nn.Sequential(
+            *[Block(config) for _ in
+              range(config.n_layers)])
+        self.ln1 = nn.LayerNorm(config.n_embd)
+        self.lm_head = nn.Linear(config.n_embd, config.vocab_size)
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+    def forward(self, idx, target=None):
+        B, T = idx.shape
+        tok_emb = self.token_embedding_table(idx)
+        pos_emb = self.position_embedding_table(torch.arange(T, device=self.config['device']))  # (T, C)
+        x = tok_emb + pos_emb  # (B, T, C)
+        x = self.blocks(x)
+        x = self.ln1(x)
+        logits = self.lm_head(x)  # (B, T, vocab_size)
+
+        if target is not None:
+            B, T, C = logits.shape
+
+            logits = logits.view(B * T, C)
+            targets = target.view(B * T)
+
+            loss = F.cross_entropy(logits, targets)
+        else:
+            loss = None
+
+        return logits, loss
+
+    def generate(self, idx, max_new_token: int):
+        for _ in range(max_new_token):
+            idx_cond = idx[:, -self.config['block_size']:]
+            logits, loss = self.forward(idx_cond)
+            logits = logits[:, -1, :]
+
+            probs = F.softmax(logits, dim=-1)
+
+            id_next = torch.multinomial(probs, num_samples=1)
+            idx = torch.cat((idx, id_next), dim=1)
+        return idx
+
+
+    def generate_text(self, max_new_token, encoder):
+        return encoder.decode(
+            self.generate(torch.zeros((1, 1), dtype=torch.long, device=self.config['device']), max_new_token)[0].tolist())
+
+
+
+if __name__ == '__main__':
+    with open('../../data/raw/sheakspear.txt', 'r', encoding='utf-8') as f:
+        text = f.read()
+
+    chars = sorted(list(set(text)))
+    vocab_size = len(chars)
+
+    tokenizer = CharTokenizer()
+    t = CharTokenizer(chars)
+
+    config = ExperimentConfig()
+
+    print(t.encode("hello world"))
+    print(t.decode([46, 43, 50, 50, 53, 1, 61, 53, 56, 50, 42]))
+
+    # on encode le texte du dataset et on le met dans un tensor
+    data = torch.tensor(t.encode(text), dtype=torch.long, device=config.device)
+
+    n = int(len(data) * 0.9)
+    ds_train = data[:n]
+    ds_test = data[n:]
+
+    config.vocab_size = vocab_size
+
+    m = GPTModel(config).to(config.device)
+    optimizer = torch.optim.Adam(m.parameters(), lr=0.001)
+    print(m.generate_text(500, t))
+
+    trainer = Trainer(m, optimizer, ds_train, ds_test, config)
+
+    trainer.train()
+
+    # m.train_model(ds_train, ds_test, 10000, optimizer)
+    print("post train : ")
+    print(m.generate_text(500, t))
