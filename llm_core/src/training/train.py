@@ -1,3 +1,14 @@
+import sys
+import os
+
+# Ajouter le chemin racine de ton projet
+sys.path.append('/home/jovyan/work/Fictional-univers-builder')
+
+# Définir les variables d’environnement AVANT import torch
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+os.environ["TORCH_FORCE_FLASH_ATTENTION"] = "0"
+os.environ["TORCH_USE_CUDA_DSA"] = "1"
+
 import mlflow
 import torch
 from mlflow.tracking import MlflowClient

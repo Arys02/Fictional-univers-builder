@@ -141,10 +141,14 @@ class Trainer:
                 if self.model_config.set_autocast_opti:
                     with torch.autocast(device_type=self.model_config.device, dtype=torch.bfloat16):
                         _, loss = self.model(xb, yb)
+                       
                 else:
                     _, loss = self.model(xb, yb)
+    
                 loss = loss / grad_acc_step
                 loss_accum += loss.detach()
+       
+                loss = loss.float()
                 loss.backward()
 
             norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
