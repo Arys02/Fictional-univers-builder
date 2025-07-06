@@ -54,7 +54,6 @@ class TransformersTokenizer(BaseTokenizer):
         print("Tokenization and saving completed.")
 
     def encode(self, text):
-        print(type(text))
         tokens = self.tokenizer.encode(text)
         return tokens
 
