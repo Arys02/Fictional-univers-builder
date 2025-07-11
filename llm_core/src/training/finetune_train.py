@@ -35,7 +35,6 @@ def collate_fn(batch):
 config = ExperimentConfig(path=f"{EXPERIMENTS_CONFIG_DIR}/experiment_finetuning_config.yaml")
 experiment_name = config.experiment_name
 mlflow.set_experiment(experiment_name)
-
 tokenizer_name = config.tokenizer['tokenizer_name']
 
 logger.info(f"Tokenizer name : {tokenizer_name}")
@@ -64,7 +63,6 @@ try:
 except Exception as e:
     print("Erreur immédiate sur le premier batch val:", e)
 
-# vérifie si le dernier batch pose problème
 try:
     for batch_val in val_dataloader:
         pass

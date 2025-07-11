@@ -24,11 +24,10 @@ Si la réponse se trouve dans les extraits, utilise-les strictement. Sinon, gén
                 prompt_ids = tokenizer.encode(prompt)
                 answer_ids = tokenizer.encode(item['answer'])
 
-                # Concatène et tronque ensemble
                 input_ids = (prompt_ids + answer_ids)[:self.max_length]
 
                 labels = [-100] * len(prompt_ids)
-                answer_truncated = input_ids[len(prompt_ids):]  # assure qu’on reste dans max_length
+                answer_truncated = input_ids[len(prompt_ids):]
                 labels += answer_truncated
                 labels = labels[:self.max_length]
 

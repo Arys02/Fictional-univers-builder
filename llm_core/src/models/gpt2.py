@@ -8,6 +8,7 @@ from torch.nn import functional as F
 
 from llm_core.config import TOKENIZED_DATA_DIR, EXPERIMENTS_CONFIG_DIR
 from llm_core.src.data.data_loader import DataLoader
+from llm_core.src.tokenizer.base_tokenizer import BaseTokenizer
 from llm_core.src.tokenizer.tiktoken_tokenizer import TiktokenTokenizer
 from llm_core.src.training.config.model_config import ExperimentConfig
 
@@ -151,6 +152,61 @@ class GPT2(nn.Module):
             id_next = torch.multinomial(probs, num_samples=1)
             idx = torch.cat((idx, id_next), dim=1)
         return idx
+
+    def generate_answer(self, question: str, encoder: BaseTokenizer, max_new_token: int  = 100, device=torch.device("cpu")):
+        input_ids = encoder.encode(question)
+
+        print(len(input_ids), self.config.block_size)
+        if len(input_ids) > self.config.block_size:
+            input_ids = input_ids[-self.config.block_size:]
+
+        idx = torch.tensor([input_ids], dtype=torch.long, device=device)
+
+        with torch.no_grad():
+            for _ in range(max_new_token):
+                idx_cond = idx[:, -self.config.block_size:]
+                logits, _ = self.forward(idx_cond)
+                logits = logits[:, -1, :]
+                probs = torch.softmax(logits, dim=-1)
+
+                next_token = torch.multinomial(probs, num_samples=1)
+                idx = torch.cat((idx, next_token), dim=1)
+
+        return encoder.decode(idx[0].tolist()[len(input_ids):])
+
+    def generate_answer2(self, context, encoder,device, max_new_tokens=100, temperature=0.8, top_k=50, stop_token_id=50256):
+        self.eval()
+        input_ids = encoder.encode(context)
+        if len(input_ids) > self.config.block_size:
+            input_ids = input_ids[-self.config.block_size:]
+
+        idx = torch.tensor([input_ids], dtype=torch.long, device=self.config.device)
+
+        with torch.no_grad():
+            for _ in range(max_new_tokens):
+                idx_cond = idx[:, -self.config.block_size:]
+                logits, _ = self.forward(idx_cond)
+                logits = logits[:, -1, :]
+
+                next_token = self._sample_next_token(logits, temperature=temperature, top_k=top_k)
+                idx = torch.cat((idx, next_token), dim=1)
+
+                if next_token.item() == stop_token_id:
+                    break
+
+        return encoder.decode(idx[0].tolist()[len(input_ids):])
+
+    def _sample_next_token(self, logits, temperature=1.0, top_k=50):
+        logits = logits / temperature
+        if top_k > 0:
+            top_logits, top_indices = torch.topk(logits, top_k)
+            probs = F.softmax(top_logits, dim=-1)
+            idx_next = torch.multinomial(probs, num_samples=1)
+            return top_indices.gather(-1, idx_next)
+        else:
+            probs = F.softmax(logits, dim=-1)
+            return torch.multinomial(probs, num_samples=1)
+
 
     def generate_text(self, max_new_token, encoder):
 
@@ -337,5 +393,9 @@ if __name__ == '__main__':
 
     from llm_core.config import SAVED_MODEL_DIR
 
+
+#%%
+
+#%%
 
 # %%

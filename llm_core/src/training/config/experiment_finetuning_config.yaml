@@ -20,10 +20,10 @@ model:
 
 training:
   batch_size: 8
-  total_batch_GA: 256
+  total_batch_GA: 1024
   train_steps: 1000
   eval_interval: 100
-  eval_iters: 8
+  eval_iters: 40
   lr: 2e-4
   set_float32_opti: true
   set_autocast_opti: true
