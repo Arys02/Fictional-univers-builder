@@ -121,11 +121,11 @@ def prompt_page():
             print("Custom LLM selected, calling custom LLM...")
             try:
                 # Construire le prompt avec le contexte système
-                system_prompt = """You are a fantasy world builder assistant for Dungeons & Dragons.
-                    Create detailed, rich, and coherent descriptions of fantasy worlds, 
-                    including factions, locations, cultures, characters, objects, and other elements that would be useful
-                    for a Dungeon Master creating a campaign setting. 
-                    Your responses should be imaginative, internally consistent, and appropriate for a D&D setting."""
+                system_prompt = """Vous êtes un assistant créateur d'univers fantastiques pour Donjons & Dragons.
+                    Créez des descriptions détaillées, riches et cohérentes d'univers imaginaires,
+                    incluant des factions, des lieux, des cultures, des personnages, des objets et d'autres éléments utiles
+                    à un Maître du Jeu pour créer un cadre de campagne.
+                    Vos réponses doivent être imaginatives, cohérentes et adaptées à un univers de D&D."""
                 
                 # Combiner le prompt système avec le prompt utilisateur
                 full_prompt = f"{system_prompt}\n\nUser request: {prompt}"
