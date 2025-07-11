@@ -15,13 +15,8 @@ MODEL = "llama3.2"
 # Redéfinition de la fonction chat pour utiliser notre client configuré
 def chat(*args, **kwargs):
     # Augmenter le timeout pour les modèles plus lourds
-    if 'model' in kwargs and kwargs['model'] == 'deepseek-r1:8b':
-        # Configurer un client avec timeout plus long pour deepseek
-        temp_client = Client(host=OLLAMA_HOST, timeout=600)  # 5 minutes au lieu de la valeur par défaut
-        return temp_client.chat(*args, **kwargs)
-    else:
-        # Utiliser le client standard pour les autres modèles
-        return ollama_client.chat(*args, **kwargs)
+    temp_client = Client(host=OLLAMA_HOST, timeout=600)  # 5 minutes au lieu de la valeur par défaut
+    return temp_client.chat(*args, **kwargs)
 
 
 def insert_univers(univers, conn=None):
