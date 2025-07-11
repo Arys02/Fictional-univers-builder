@@ -9,10 +9,18 @@ from db_path import get_db_path
 OLLAMA_HOST = os.environ.get('OLLAMA_HOST', 'http://localhost:11434')
 ollama_client = Client(host=OLLAMA_HOST)
 DB_PATH = os.environ.get('DB_PATH', 'database.db')
+MODEL = "llama3.2"
 
 # Redéfinition de la fonction chat pour utiliser notre client configuré
 def chat(*args, **kwargs):
-    return ollama_client.chat(*args, **kwargs)
+    # Augmenter le timeout pour les modèles plus lourds
+    if 'model' in kwargs and kwargs['model'] == 'deepseek-r1:8b':
+        # Configurer un client avec timeout plus long pour deepseek
+        temp_client = Client(host=OLLAMA_HOST, timeout=600)  # 5 minutes au lieu de la valeur par défaut
+        return temp_client.chat(*args, **kwargs)
+    else:
+        # Utiliser le client standard pour les autres modèles
+        return ollama_client.chat(*args, **kwargs)
 
 
 def insert_univers(univers, conn=None):
@@ -199,7 +207,7 @@ def is_valid_json(text):
         return False
 
 
-def ask_faction_extraction(response_content):
+def ask_faction_extraction(response_content, model=None):
     system_prompt = """Tu es un expert en extraction de données structurées à partir de réponses de modèles de langage.
         Tu dois extraire les factions d'un univers fictif. 
         Tu dois fournir le nom des factions, et pour chacune une brève description, à partir des informations fournies dans le texte.
@@ -211,11 +219,11 @@ def ask_faction_extraction(response_content):
           }
         ]
         Si tu n’en trouves pas, retourne simplement []. Pas d'explication, pas de texte, seulement du JSON."""
-
+    current_model = model or MODEL
     user_prompt = f"Extrait les factions de la réponse suivante :\n\n{response_content}"
 
     response: ChatResponse = chat(
-        model="llama3.2",
+        model=current_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -253,7 +261,7 @@ def ask_faction_extraction(response_content):
                 """
 
             retry_response: ChatResponse = chat(
-                model="llama3.2",
+                model=current_model,
                 messages=[
                     {
                         "role": "system",
@@ -274,7 +282,7 @@ def ask_faction_extraction(response_content):
                 return json.loads(retry_content)
 
 
-def ask_location_extraction(response_content):
+def ask_location_extraction(response_content, model=None):
     system_prompt = """
         Tu es un expert en extraction de lieux géographiques à partir de textes de fiction. 
         Ton objectif est d'extraire UNIQUEMENT les lieux physiques ou géographiques (régions, villes, forêts, montagnes, déserts, marais, péninsules, etc.).
@@ -292,11 +300,11 @@ def ask_location_extraction(response_content):
     
         Si aucun lieu n’est trouvé, retourne simplement []. Aucune explication. Seulement du JSON.
         """
-
+    current_model = model or MODEL
     user_prompt = f"Extrait les lieux géographiques de la réponse suivante :\n\n{response_content}"
 
     response: ChatResponse = chat(
-        model="llama3.2",
+        model=current_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -334,7 +342,7 @@ def ask_location_extraction(response_content):
                 """
 
             retry_response: ChatResponse = chat(
-                model="llama3.2",
+                model=current_model,
                 messages=[
                     {
                         "role": "system",
@@ -355,7 +363,7 @@ def ask_location_extraction(response_content):
                 return json.loads(retry_content)
 
 
-def ask_univers_extraction(response_content):
+def ask_univers_extraction(response_content, model=None):
     system_prompt = """Tu es un expert en extraction de données structurées à partir de réponses de modèles de langage.
         Tu dois extraire le nom de l'univers dont il est question dans le texte. 
         Récoltes des informations globales sur cet univers et fait un résumé court et synthétique le concernant.
@@ -369,10 +377,11 @@ def ask_univers_extraction(response_content):
         ]
         Si tu n’en trouves pas, retourne simplement []. Pas d'explication, pas de texte, seulement du JSON."""
 
+    current_model = model or MODEL
     user_prompt = f"Extrait les factions de la réponse suivante :\n\n{response_content}"
 
     response: ChatResponse = chat(
-        model="llama3.2",
+        model=current_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -410,7 +419,7 @@ def ask_univers_extraction(response_content):
                 """
 
             retry_response: ChatResponse = chat(
-                model="llama3.2",
+                model=current_model,
                 messages=[
                     {
                         "role": "system",
@@ -431,7 +440,7 @@ def ask_univers_extraction(response_content):
                 return json.loads(retry_content)
 
 
-def ask_culture_extraction(response_content):
+def ask_culture_extraction(response_content, model=None):
     system_prompt = """Tu es un expert en extraction de données structurées à partir de réponses de modèles de langage.
         Tu dois extraire les cultures d'un univers fictif. 
         Des exemples de cultures seraient les religions, les philosophies, les modes de vie, les traditions, etc.
@@ -446,10 +455,11 @@ def ask_culture_extraction(response_content):
         ]
         Si tu n’en trouves pas, retourne simplement []. Pas d'explication, pas de texte, seulement du JSON."""
 
+    current_model = model or MODEL
     user_prompt = f"Extrait les cultures de la réponse suivante :\n\n{response_content}"
 
     response: ChatResponse = chat(
-        model="llama3.2",
+        model=current_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -487,7 +497,7 @@ def ask_culture_extraction(response_content):
                 """
 
             retry_response: ChatResponse = chat(
-                model="llama3.2",
+                model=current_model,
                 messages=[
                     {
                         "role": "system",
@@ -538,7 +548,7 @@ def insert_prompt_answer(prompt, response, univers_id=None, conn=None):
             conn.close()
 
 
-def ask_objets_extraction(response_content):
+def ask_objets_extraction(response_content, model=None):
     system_prompt = """Tu es un expert en extraction de données structurées à partir de réponses de modèles de langage.
         Tu dois extraire les objets importants d'un univers fictif. 
         Des exemples d'objets seraient par exemple des armes, des artefacts, des objets magiques, des reliques, etc.
@@ -552,10 +562,11 @@ def ask_objets_extraction(response_content):
         ]
         Si tu n’en trouves pas, retourne simplement []. Pas d'explication, pas de texte, seulement du JSON."""
 
+    current_model = model or MODEL
     user_prompt = f"Extrait les objets de la réponse suivante :\n\n{response_content}"
 
     response: ChatResponse = chat(
-        model="llama3.2",
+        model=current_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -593,7 +604,7 @@ def ask_objets_extraction(response_content):
                 """
 
             retry_response: ChatResponse = chat(
-                model="llama3.2",
+                model=current_model,
                 messages=[
                     {
                         "role": "system",
@@ -654,7 +665,7 @@ def insert_objets(objets, univers_id=None, conn=None):
             conn.close()
 
 
-def ask_personnages_extraction(response_content):
+def ask_personnages_extraction(response_content, model=None):
     system_prompt = """Tu es un expert en extraction de données structurées à partir de réponses de modèles de langage.
         Tu dois extraire les personnages importants d'un univers fictif. 
         Des exemples de personnages seraient par exemple des héros, des méchants, des figures historiques, etc.
@@ -668,10 +679,11 @@ def ask_personnages_extraction(response_content):
         ]
         Si tu n’en trouves pas, retourne simplement []. Pas d'explication, pas de texte, seulement du JSON."""
 
+    current_model = model or MODEL
     user_prompt = f"Extrait les objets de la réponse suivante :\n\n{response_content}"
 
     response: ChatResponse = chat(
-        model="llama3.2",
+        model=current_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -709,7 +721,7 @@ def ask_personnages_extraction(response_content):
                 """
 
             retry_response: ChatResponse = chat(
-                model="llama3.2",
+                model=current_model,
                 messages=[
                     {
                         "role": "system",

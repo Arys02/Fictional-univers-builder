@@ -43,6 +43,7 @@ def parse_and_save():
     # Récupérer le contenu de la réponse
     response_content = request.form.get("response_content")
     prompt = request.form.get("prompt", "")
+    llm_model = request.form.get("llm_model", "llama3.2")
 
     if not response_content:
         return {"error": "No response content provided"}, 400
@@ -50,7 +51,7 @@ def parse_and_save():
     try:
         # Extraction des données
         print("Extracting universe data...")
-        univers_data_list = ask_univers_extraction(response_content)
+        univers_data_list = ask_univers_extraction(response_content, model=llm_model)
 
         # Prendre le premier élément de la liste
         if isinstance(univers_data_list, list) and univers_data_list:
@@ -59,11 +60,11 @@ def parse_and_save():
             return {"error": "Failed to extract universe data"}, 500
 
         # Suite du code pour les autres extractions...
-        factions_data = ask_faction_extraction(response_content)
-        locations_data = ask_location_extraction(response_content)
-        cultures_data = ask_culture_extraction(response_content)
-        objects_data = ask_objets_extraction(response_content)
-        personnages_data = ask_personnages_extraction(response_content)
+        factions_data = ask_faction_extraction(response_content, model=llm_model)
+        locations_data = ask_location_extraction(response_content, model=llm_model)
+        cultures_data = ask_culture_extraction(response_content, model=llm_model)
+        objects_data = ask_objets_extraction(response_content, model=llm_model)
+        personnages_data = ask_personnages_extraction(response_content, model=llm_model)
 
         # Connexion à la base de données
         conn = sqlite3.connect(get_db_path())
@@ -110,7 +111,9 @@ def prompt_page():
             )
 
         prompt = request.form["prompt"]
+        llm_model = request.form.get("llm_model", "llama3.2")
         print("Prompt:", prompt)
+        print("LLM Model:", llm_model)
 
         # Get response from LLM
         print("Calling LLM...")
@@ -152,7 +155,7 @@ def prompt_page():
 
             # Make the API call
             response: ChatResponse = chat(
-                model="llama3.2",
+                model=llm_model,
                 messages=messages,
             )
             print("LLM response received")
@@ -165,6 +168,7 @@ def prompt_page():
                 "prompt.html",
                 prompt=prompt,
                 response=response_content,
+                selected_model=llm_model,
             )
         except Exception as e:
             print("Error occurred:", str(e))
