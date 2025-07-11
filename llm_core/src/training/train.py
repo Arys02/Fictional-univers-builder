@@ -28,7 +28,6 @@ data = DataLoader.fromTokens(type=config.tokenizer['tokenizer_type'], dataset=co
 
 data.split(config.split_ratio)
 
-
 model = GPT2(config).to(config.device)
 
 optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device_type='cuda')
@@ -44,7 +43,7 @@ with mlflow.start_run():
 
     mlflow.log_param("device", config.device)
     mlflow.log_param("tokenized_dataset_file", TOKENIZED_DATA_DIR / f'{tokenizer_name}.pt')
-    #mlflow.set_tag("tokenizer_path", str(SAVED_TOKENIZER_DIR / f'{tokenizer_name}.json'))
+    # mlflow.set_tag("tokenizer_path", str(SAVED_TOKENIZER_DIR / f'{tokenizer_name}.json'))
     mlflow.log_artifact(EXPERIMENTS_CONFIG_DIR / 'experiment_config.yaml', artifact_path='config')
 
     trainer.train()
