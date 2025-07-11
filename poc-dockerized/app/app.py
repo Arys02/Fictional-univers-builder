@@ -4,6 +4,7 @@ from flask import Flask, render_template, request, redirect, url_for
 from llm_call import (
     chat,
     ChatResponse,
+    call_custom_llm,
     insert_univers,
     ask_univers_extraction,
     get_univers_id,
@@ -115,64 +116,92 @@ def prompt_page():
         print("Prompt:", prompt)
         print("LLM Model:", llm_model)
 
-        # Get response from LLM
-        print("Calling LLM...")
-        try:
-            # Build message list with system prompt
-            messages = [
-                {
-                    "role": "system",
-                    "content": """You are a fantasy world builder assistant for Dungeons & Dragons.
-                        Create detailed, rich, and coherent descriptions of fantasy worlds, 
-                        including factions, locations, cultures, characters, objects, and other elements that would be useful
-                        for a Dungeon Master creating a campaign setting. 
-                        Your responses should be imaginative, internally consistent, and appropriate for a D&D setting.""",
-                }
-            ]
-
-            # Si c'est une continuation de conversation, inclure les échanges précédents
-            if (
-                "previous_response" in request.form
-                and request.form.get("is_reprompt") == "true"
-            ):
-                previous_prompt = request.form.get("original_prompt", prompt)
-                previous_response = request.form.get("previous_response", "")
-
-                # Add the previous exchange
-                messages.append({"role": "user", "content": previous_prompt})
-                messages.append({"role": "assistant", "content": previous_response})
-
-                # Add a system message requesting refinement
-                messages.append(
+        if llm_model == "custom-llm":
+            # Handle custom LLM logic here
+            print("Custom LLM selected, calling custom LLM...")
+            try:
+                # Construire le prompt avec le contexte système
+                system_prompt = """You are a fantasy world builder assistant for Dungeons & Dragons.
+                    Create detailed, rich, and coherent descriptions of fantasy worlds, 
+                    including factions, locations, cultures, characters, objects, and other elements that would be useful
+                    for a Dungeon Master creating a campaign setting. 
+                    Your responses should be imaginative, internally consistent, and appropriate for a D&D setting."""
+                
+                # Combiner le prompt système avec le prompt utilisateur
+                full_prompt = f"{system_prompt}\n\nUser request: {prompt}"
+                
+                # Appeler le LLM custom
+                response_content = call_custom_llm(full_prompt)
+                print("Custom LLM response received")
+                
+                return render_template(
+                    "prompt.html",
+                    prompt=prompt,
+                    response=response_content,
+                    selected_model=llm_model,
+                )
+            except Exception as e:
+                print("Error occurred with custom LLM:", str(e))
+                return render_template("prompt.html", prompt=prompt, error=str(e), selected_model=llm_model)
+        else:
+            # Get response from LLM
+            print("Calling LLM...")
+            try:
+                # Build message list with system prompt
+                messages = [
                     {
                         "role": "system",
-                        "content": "The user wasn't fully satisfied with your previous response. Please refine your answer based on their new prompt.",
+                        "content": """You are a fantasy world builder assistant for Dungeons & Dragons.
+                            Create detailed, rich, and coherent descriptions of fantasy worlds, 
+                            including factions, locations, cultures, characters, objects, and other elements that would be useful
+                            for a Dungeon Master creating a campaign setting. 
+                            Your responses should be imaginative, internally consistent, and appropriate for a D&D setting.""",
                     }
+                ]
+
+                # Si c'est une continuation de conversation, inclure les échanges précédents
+                if (
+                    "previous_response" in request.form
+                    and request.form.get("is_reprompt") == "true"
+                ):
+                    previous_prompt = request.form.get("original_prompt", prompt)
+                    previous_response = request.form.get("previous_response", "")
+
+                    # Add the previous exchange
+                    messages.append({"role": "user", "content": previous_prompt})
+                    messages.append({"role": "assistant", "content": previous_response})
+
+                    # Add a system message requesting refinement
+                    messages.append(
+                        {
+                            "role": "system",
+                            "content": "The user wasn't fully satisfied with your previous response. Please refine your answer based on their new prompt.",
+                        }
+                    )
+
+                # Add the current prompt
+                messages.append({"role": "user", "content": prompt})
+
+                # Make the API call
+                response: ChatResponse = chat(
+                    model=llm_model,
+                    messages=messages,
                 )
+                print("LLM response received")
 
-            # Add the current prompt
-            messages.append({"role": "user", "content": prompt})
+                # Extract the response content
+                response_content = response.message.content
+                print("Response content extracted")
 
-            # Make the API call
-            response: ChatResponse = chat(
-                model=llm_model,
-                messages=messages,
-            )
-            print("LLM response received")
-
-            # Extract the response content
-            response_content = response.message.content
-            print("Response content extracted")
-
-            return render_template(
-                "prompt.html",
-                prompt=prompt,
-                response=response_content,
-                selected_model=llm_model,
-            )
-        except Exception as e:
-            print("Error occurred:", str(e))
-            return render_template("prompt.html", prompt=prompt, error=str(e))
+                return render_template(
+                    "prompt.html",
+                    prompt=prompt,
+                    response=response_content,
+                    selected_model=llm_model,
+                )
+            except Exception as e:
+                print("Error occurred:", str(e))
+                return render_template("prompt.html", prompt=prompt, error=str(e))
 
     return render_template("prompt.html")
     
@@ -437,7 +466,6 @@ def db_info():
         return {"error": str(e)}
 
 
-# À la fin du fichier, modifiez la partie où vous démarrez l'application
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()

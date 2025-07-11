@@ -31,7 +31,7 @@ steps:
       - '--cpu=8'
       - '--min-instances=0'
       - '--max-instances=4'
-      - '--set-env-vars=DB_PATH=/tmp/database.db,OLLAMA_HOST=http://34.38.60.7:11434'
+      - '--set-env-vars=DB_PATH=/tmp/database.db,OLLAMA_HOST=http://146.148.30.187:11434,CUSTOM_LLM_URL=${_CUSTOM_LLM_URL}'
       - '--set-cloudsql-instances=${PROJECT_ID}:${_REGION}:fictional-universe-sql'
       - '--add-volume=name=db-volume,type=cloud-storage,bucket=${PROJECT_ID}-database'
       - '--add-volume-mount=volume=db-volume,mount-path=/tmp'
@@ -52,6 +52,7 @@ substitutions:
   _REGION: europe-west1
   _REPOSITORY: fictional-universe
   _TAG: latest
+  _CUSTOM_LLM_URL: http://90.16.29.83:8000/
   # _VPC_CONNECTOR: fict-univ-con
 
 images:

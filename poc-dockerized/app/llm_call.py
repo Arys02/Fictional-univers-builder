@@ -3,6 +3,7 @@ from ollama import ChatResponse, Client
 import sqlite3
 import os 
 from datetime import datetime
+import requests
 from db_path import get_db_path
 
 # Configuration du client Ollama avec l'hôte du conteneur Docker
@@ -780,3 +781,62 @@ def insert_personnages(personnages, univers_id=None, conn=None):
     finally:
         if close_conn:
             conn.close()
+
+
+def call_custom_llm(prompt, custom_llm_url=None):
+    """
+    Appelle le LLM custom sur le serveur MLFlow.
+    
+    :param prompt: Le texte à envoyer au LLM
+    :param custom_llm_url: L'URL du serveur LLM custom (optionnel, utilise la variable d'environnement par défaut)
+    :return: La réponse du LLM
+    """
+    # Utiliser la variable d'environnement ou l'URL par défaut
+    if custom_llm_url is None:
+        custom_llm_url = os.environ.get('CUSTOM_LLM_URL')
+    
+    # Ajouter le endpoint /llm à l'URL de base
+    if not custom_llm_url.endswith('/'):
+        custom_llm_url += '/'
+    endpoint_url = custom_llm_url + 'llm'
+    
+    try:
+        # Préparer les données selon le format requis par votre ami
+        data = {
+            "prompt": prompt,
+            "version": 8,
+            "model": "gpt2"
+        }
+        
+        # Envoyer la requête POST au serveur LLM
+        response = requests.post(
+            endpoint_url,
+            json=data,
+            headers={"Content-Type": "application/json"},
+            timeout=300  # Timeout de 5 minutes
+        )
+        
+        # Vérifier le statut de la réponse
+        response.raise_for_status()
+        
+        # Récupérer le contenu de la réponse
+        result = response.json()
+        
+        # Extraire le texte de réponse (adapter selon votre format de réponse)
+        if isinstance(result, dict):
+            # Si la réponse est un dictionnaire, chercher les clés courantes
+            response_text = result.get('answers', result.get('response', result.get('text', result.get('output', str(result)))))
+        else:
+            # Si c'est directement du texte
+            response_text = str(result)
+            
+        return response_text
+        
+    except requests.exceptions.Timeout:
+        raise Exception("Timeout: Le serveur LLM custom n'a pas répondu dans les temps")
+    except requests.exceptions.ConnectionError:
+        raise Exception(f"Erreur de connexion: Impossible de joindre le serveur LLM à {endpoint_url}")
+    except requests.exceptions.HTTPError as e:
+        raise Exception(f"Erreur HTTP {response.status_code}: {e}")
+    except Exception as e:
+        raise Exception(f"Erreur lors de l'appel au LLM custom: {str(e)}")

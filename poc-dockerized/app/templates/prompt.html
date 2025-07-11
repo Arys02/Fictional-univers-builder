@@ -13,6 +13,7 @@
                 </label>
                 <select name="llm_model" id="llm_model" style="background-color: var(--bg-tertiary); color: var(--text-primary); padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border); width: 100%; max-width: 300px;">
                     <option value="llama3.2" {% if selected_model == 'llama3.2' or not selected_model %}selected{% endif %}>llama3.2</option>
+                    <option value="custom-llm" {% if selected_model == 'custom-llm' %}selected{% endif %}>custom-llm</option>
                     <option value="mistral" {% if selected_model == 'mistral' %}selected{% endif %}>mistral</option>
                     <option value="deepseek-r1:8b" {% if selected_model == 'deepseek-r1:8b' %}selected{% endif %}>deepseek-r1:8b</option>
                 </select>
