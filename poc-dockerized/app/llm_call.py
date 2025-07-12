@@ -796,7 +796,6 @@ def call_custom_llm(prompt, custom_llm_url=None):
     endpoint_url = custom_llm_url + 'llm'
     
     try:
-        # Préparer les données selon le format requis par votre ami
         data = {
             "prompt": prompt,
             "version": 8,

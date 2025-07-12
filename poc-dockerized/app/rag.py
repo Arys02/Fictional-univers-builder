@@ -239,7 +239,7 @@ def rag_answer(question, univers_id, k=5):
         """
 
         response: ChatResponse = chat(
-            model="llama3.2",
+            model="gemma2",
             messages=[{"role": "user", "content": prompt}]
         )
         
@@ -304,7 +304,7 @@ def rag_update_db(request, univers_id):
         """
 
         response: ChatResponse = chat(
-            model="llama3.2",
+            model="gemma2",
             messages=[{"role": "user", "content": prompt}]
         )
 
@@ -347,7 +347,7 @@ def check_sql_content(script_sql, request):
     {script_sql}
     """
         response: ChatResponse = chat(
-            model="llama3.2",
+            model="gemma2",
             messages=[{"role": "user", "content": prompt}])
         
         print(response.message.content.strip())
@@ -380,7 +380,7 @@ Voici une requête SQL :
 {script_sql}
 """
     response: ChatResponse = chat(
-        model="llama3.2",
+        model="gemma2",
         messages=[{"role": "user", "content": prompt}]
     )
     return response.message.content.strip()
