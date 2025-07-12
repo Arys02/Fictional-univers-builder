@@ -4,6 +4,7 @@ import json
 import pickle
 import os
 from pathlib import Path
+import re
 
 import sqlite3
 from db_path import get_db_path
@@ -17,6 +18,29 @@ from ollama import chat, ChatResponse
 _model_cache = {}
 _index_cache = {}
 _data_cache = {}
+
+MODEL_NAME = "gemma2"
+
+# def escape_sql_in_values(sql_query):
+#     """Échappe les guillemets dans les valeurs SQL"""
+#     # Pattern pour capturer les valeurs entre guillemets simples
+#     pattern = r"'([^']*(?:''[^']*)*)'"
+    
+#     def replace_quotes(match):
+#         value = match.group(1)
+#         # Échapper les guillemets simples qui ne sont pas déjà échappés
+#         escaped_value = re.sub(r"(?<!'')'(?!'')", "''", value)
+#         return f"'{escaped_value}'"
+    
+#     return re.sub(pattern, replace_quotes, sql_query)
+
+def cleaning_llm_response(response_text):
+    response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL).strip()
+    response_text = re.sub(r"^(```sql|sql\s*|```)", "", response_text.strip(), flags=re.IGNORECASE)
+    response_text = response_text.replace("```", "").strip()
+    response_text = response_text.replace("\\", "").strip()
+    # response_text = escape_sql_in_values(response_text)
+    return response_text
 
 def get_cached_model(model_name="all-MiniLM-L6-v2"):
     """Récupère ou charge le modèle d'embedding avec cache"""
@@ -239,11 +263,12 @@ def rag_answer(question, univers_id, k=5):
         """
 
         response: ChatResponse = chat(
-            model="gemma2",
+            model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}]
         )
+        response_text = cleaning_llm_response(response.message.content)
         
-        return response.message.content
+        return response_text
         
     except Exception as e:
         print(f"Erreur dans rag_answer: {str(e)}")
@@ -279,8 +304,11 @@ def rag_update_db(request, univers_id):
         "{request}"
 
         Écris uniquement le script SQL nécessaire pour mettre à jour la base en fonction de la requête.
+        - Écris uniquement le script SQL nécessaire pour mettre à jour la base
         - N'écris **aucun commentaire**, **aucune explication**.
         - Si une jointure ou une vérification est nécessaire, fais-le.
+        - ATTENTION: Si tu inclus des guillemets simples (apostrophes) dans le texte, tu DOIS les échapper en les doublant
+        - Exemple: "d'érudits" devient "d''érudits" dans le SQL
         - Utilise l'univers_id ou l'id (si tu te trouves dans la table univers) suivant pour lier les données : {univers_id}
 
         Le script SQL doit **impérativement utiliser l'univers_id ou l'id de la table univers "{univers_id}"** afin de ne modifier que les données de l'univers concerné.
@@ -290,12 +318,12 @@ def rag_update_db(request, univers_id):
         Exemple :
         Si la requête est "Ajoute moi la faction Le Clan de l'Eau avec une description", alors le SQL généré doit être :
 
-        INSERT INTO faction (name, description, univers_id) VALUES ('Le Clan de l'Eau', 'Les elfes démoniaques du Clan de L'Eau sont connus pour leur agressivité et leur passion pour le thrash metal. Ils sont réputés pour leurs concerts de plus de 2 heures d'heureux vacarme.', 2);
+        INSERT INTO faction (name, description, univers_id) VALUES ('Le Clan de l''Eau', 'Les elfes démoniaques du Clan de L''Eau sont connus pour leur agressivité et leur passion pour le thrash metal. Ils sont réputés pour leurs concerts de plus de 2 heures d''heureux vacarme.', 2);
         
         Second Exemple :
         Si la requête est "Je viens de passer dans la Forêt Trolonne et elle a brûlée", alors c'est du contexte à rajouter à la description de la location, le SQL généré doit être :
 
-        UPDATE location SET description = 'un immense forestier où les trolls vivent dans leurs huttes de pierre et de bois. Elle a aujourd'hui brûlée' WHERE name = 'Forêt Trolonne' AND univers_id = 2;
+        UPDATE location SET description = 'un immense forestier où les trolls vivent dans leurs huttes de pierre et de bois. Elle a aujourd''hui brûlée' WHERE name = 'Forêt Trolonne' AND univers_id = 2;
         
         Troisième exemple :
         Si la requête est "Met à jour le nom de l'univers en "Magika"", alors le SQL généré doit être :
@@ -304,13 +332,13 @@ def rag_update_db(request, univers_id):
         """
 
         response: ChatResponse = chat(
-            model="gemma2",
+            model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}]
         )
 
-        clean_response = response.message.content.strip()
+        clean_response = cleaning_llm_response(response.message.content)
 
-        sql_syntax_valid = is_sql_syntax_valid(clean_response, get_db_path())
+        sql_syntax_valid, error = is_sql_syntax_valid(clean_response, get_db_path())
         sql_content_valid = check_sql_content(clean_response, request)
 
         
@@ -318,7 +346,7 @@ def rag_update_db(request, univers_id):
 
         print(clean_response)
 
-        print(sql_syntax_valid, sql_content_valid, univers_id_valid)
+        print(sql_syntax_valid, sql_content_valid, univers_id_valid, error)
 
         if sql_syntax_valid and sql_content_valid and univers_id_valid:
             is_syntax_valid = True
@@ -347,15 +375,15 @@ def check_sql_content(script_sql, request):
     {script_sql}
     """
         response: ChatResponse = chat(
-            model="gemma2",
+            model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}])
         
-        print(response.message.content.strip())
+        clean_response = cleaning_llm_response(response.message.content)
         
-        if response.message.content.strip() in ["True", "False"]:
+        if clean_response in ["True", "False"]:
             is_syntax_valid = True
 
-    return response.message.content.strip()
+    return clean_response
 
 def is_sql_syntax_valid(sql, db_path):
     try:
@@ -364,9 +392,9 @@ def is_sql_syntax_valid(sql, db_path):
         cursor.execute("BEGIN") 
         cursor.execute(sql)
         conn.rollback()
-        return True
-    except sqlite3.Error:
-        return False
+        return True, None
+    except sqlite3.Error as e:
+        return False, e
     finally:
         conn.close()
 
@@ -380,10 +408,10 @@ Voici une requête SQL :
 {script_sql}
 """
     response: ChatResponse = chat(
-        model="gemma2",
+        model=MODEL_NAME,
         messages=[{"role": "user", "content": prompt}]
     )
-    return response.message.content.strip()
+    return cleaning_llm_response(response.message.content)
 
 if __name__ == "__main__":
     # model = SentenceTransformer("all-MiniLM-L6-v2")
