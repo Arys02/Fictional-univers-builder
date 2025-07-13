@@ -12,10 +12,8 @@ ollama_client = Client(host=OLLAMA_HOST)
 DB_PATH = os.environ.get('DB_PATH', 'database.db')
 MODEL = "llama3.2"
 
-# Redéfinition de la fonction chat pour utiliser notre client configuré
 def chat(*args, **kwargs):
-    # Augmenter le timeout pour les modèles plus lourds
-    temp_client = Client(host=OLLAMA_HOST, timeout=600)  # 5 minutes au lieu de la valeur par défaut
+    temp_client = Client(host=OLLAMA_HOST, timeout=600)
     return temp_client.chat(*args, **kwargs)
 
 
@@ -28,7 +26,6 @@ def insert_univers(univers, conn=None):
             {"name": "Nom de l'univers", "description": "Texte..."},
             ...
         ]
-    :param db_path: chemin vers le fichier .db
     """
     close_conn = False
     if conn is None:
@@ -235,7 +232,6 @@ def ask_faction_extraction(response_content, model=None):
 
     content = response.message.content.strip()
 
-    # Validation du JSON
     if is_valid_json(content):
         return json.loads(content)
     else:
@@ -315,8 +311,7 @@ def ask_location_extraction(response_content, model=None):
     )
 
     content = response.message.content.strip()
-    # print("Réponse brute de l'LLM pour les lieux :", content)
-    # Validation du JSON
+
     if is_valid_json(content):
         return json.loads(content)
     else:
@@ -392,8 +387,7 @@ def ask_univers_extraction(response_content, model=None):
     )
 
     content = response.message.content.strip()
-    # print("Réponse brute de l'LLM pour l'univers :", content)
-    # Validation du JSON
+
     if is_valid_json(content):
         return json.loads(content)
     else:
@@ -471,7 +465,6 @@ def ask_culture_extraction(response_content, model=None):
 
     content = response.message.content.strip()
 
-    # Validation du JSON
     if is_valid_json(content):
         return json.loads(content)
     else:
@@ -578,7 +571,7 @@ def ask_objets_extraction(response_content, model=None):
 
     content = response.message.content.strip()
 
-    # Validation du JSON
+    
     if is_valid_json(content):
         return json.loads(content)
     else:
@@ -695,7 +688,6 @@ def ask_personnages_extraction(response_content, model=None):
 
     content = response.message.content.strip()
 
-    # Validation du JSON
     if is_valid_json(content):
         return json.loads(content)
     else:
@@ -786,11 +778,9 @@ def call_custom_llm(prompt, custom_llm_url=None):
     :param custom_llm_url: L'URL du serveur LLM custom (optionnel, utilise la variable d'environnement par défaut)
     :return: La réponse du LLM
     """
-    # Utiliser la variable d'environnement ou l'URL par défaut
     if custom_llm_url is None:
         custom_llm_url = os.environ.get('CUSTOM_LLM_URL')
     
-    # Ajouter le endpoint /llm à l'URL de base
     if not custom_llm_url.endswith('/'):
         custom_llm_url += '/'
     endpoint_url = custom_llm_url + 'llm'
@@ -802,7 +792,6 @@ def call_custom_llm(prompt, custom_llm_url=None):
             "model": "gpt2"
         }
         
-        # Envoyer la requête POST au serveur LLM
         response = requests.post(
             endpoint_url,
             json=data,
@@ -810,18 +799,13 @@ def call_custom_llm(prompt, custom_llm_url=None):
             timeout=300  # Timeout de 5 minutes
         )
         
-        # Vérifier le statut de la réponse
         response.raise_for_status()
         
-        # Récupérer le contenu de la réponse
         result = response.json()
         
-        # Extraire le texte de réponse (adapter selon votre format de réponse)
         if isinstance(result, dict):
-            # Si la réponse est un dictionnaire, chercher les clés courantes
             response_text = result.get('answers', result.get('response', result.get('text', result.get('output', str(result)))))
         else:
-            # Si c'est directement du texte
             response_text = str(result)
             
         return response_text

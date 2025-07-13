@@ -1,42 +1,89 @@
 # Fictional Universe Builder
 
 ## Overview
-The Fictional Universe Builder is a Flask application that leverages Large Language Models to create rich, detailed fictional universes for role-playing games. It uses Ollama to run LLMs locally, and stores generated content in a SQLite database, allowing users to build and explore their created universes through a web interface.
+The Fictional Universe Builder is a comprehensive platform for creating rich, detailed fictional universes for role-playing games. It consists of two main components:
+
+1. **Cloud Application** - A Flask web application with RAG (Retrieval-Augmented Generation) capabilities
+2. **LLM Core** - A modular framework for training and experimenting with language models
+
+The system uses Ollama to run LLMs locally, stores generated content in a SQLite database, and provides advanced features like semantic search and database querying through natural language.
+
+The app is running on GCP and is available at https://fictional-universe-web-1069829401679.europe-west1.run.app
 
 ## Project Structure
 ```
-poc-dockerized
-├── app
-│   ├── app.py                  # Main Flask application
-│   ├── llm_call.py             # LLM interaction module
-│   ├── templates               # Flask templates directory
-│   │   ├── prompt.html         # Template for the main prompt page
-│   │   ├── wiki_home.html      # Template for the wiki home page
-│   │   └── wiki_table.html     # Template for displaying data in a table
-|   |   |__ base.html           # Template for main aspect
-│   └── static                  # Static files (CSS, JS, etc.)
-├── Dockerfile                   # Dockerfile for building the application image
-├── docker-compose.yml           # Docker Compose configuration
-├── requirements.txt             # Python dependencies
-├── .dockerignore                # Files to ignore when building the Docker image
-├── README.md                    # Project documentation
-├── WIKI.md                      # Detailed database documentation
-├── generate_db_diagram.py       # Database diagram generator
-└── db_stats.py                  # Database statistics and reports
+Fictional-univers-builder/
+├── cloud/                          # Web application with RAG capabilities
+│   ├── app/
+│   │   ├── app.py                  # Main Flask application
+│   │   ├── llm_call.py             # LLM interaction module
+│   │   ├── rag.py                  # RAG (Retrieval-Augmented Generation) module
+│   │   ├── init_db.py              # Database initialization
+│   │   ├── drop_tables.py          # Database cleanup utilities
+│   │   ├── db_path.py              # Database path configuration
+│   │   └── templates/              # Flask templates directory
+│   │       ├── base.html           # Base template
+│   │       ├── prompt.html         # Main prompt interface
+│   │       ├── rag.html            # RAG query interface
+│   │       ├── wiki_home.html      # Wiki home page
+│   │       ├── wiki_table.html     # Data table display
+│   │       └── wiki_universe.html  # Universe detail view
+│   ├── Dockerfile                  # Docker configuration
+│   ├── docker-compose.yml          # Docker Compose setup
+│   ├── requirements.txt            # Python dependencies
+│   ├── cloudbuild.yaml             # Google Cloud Build configuration
+│   └── docs/                       # Deployment documentation
+├── llm_core/                       # LLM training and experimentation framework
+│   ├── src/
+│   │   ├── models/                 # Model implementations
+│   │   │   ├── gpt.py              # GPT model wrapper
+│   │   │   └── gpt2.py             # GPT-2 model implementation
+│   │   ├── training/               # Training framework
+│   │   │   ├── train.py            # Training script
+│   │   │   ├── trainer.py          # Training utilities
+│   │   │   └── config/             # Training configurations
+│   │   ├── tokenizer/              # Tokenizer implementations
+│   │   ├── data/                   # Data processing utilities
+│   │   ├── utils/                  # Utility functions
+│   │   └── notebook/               # Jupyter notebooks for experimentation
+│   ├── mlflow_root/                # MLflow experiment tracking
+│   ├── data/                       # Training data
+│   ├── config.py                   # Configuration management
+│   └── requirements.txt            # LLM core dependencies
+├── venv/                           # Python virtual environment
+├── LICENSE                         # Project license
+└── README.md                       # This file
 ```
 
+## Key Features
+
+### Cloud Application
+- **Interactive Universe Creation**: Generate fictional universes through natural language prompts
+- **RAG (Retrieval-Augmented Generation)**: Query your universe database using natural language
+- **Semantic Search**: Find relevant information across all universe elements
+- **Database Management**: Visual interface for exploring and managing generated content
+- **Multi-Model Support**: Support for different LLM models including custom implementations
+
+### LLM Core Framework
+- **Modular Architecture**: Extensible framework for different model types
+- **Training Pipeline**: Complete training infrastructure with MLflow tracking
+- **Tokenizer Support**: Multiple tokenizer implementations
+- **Experiment Management**: Jupyter notebooks for model experimentation
+- **Configuration Management**: Flexible configuration system
 
 ## Prerequisites
 - Docker and Docker Compose
 - 4+ GB of RAM for running the LLM
 - GPU acceleration (optional but recommended for better performance)
+- Python 3.8+ (for local development)
 
 ## Installation and Setup
+FOLLOW THESE STEPS TO RUN LOCALLY, SOME CHANGES NEED TO BE DONE TO RUN.
 
 ### 1. Clone the Repository
 ```bash
 git clone <repository-url>
-cd poc-dockerized
+cd Fictional-univers-builder
 ```
 
 ### 2. Check for Port Conflicts
@@ -50,8 +97,8 @@ netstat -ano | findstr 5000
 lsof -i :11434
 lsof -i :5000
 ```
-If Ollama is already running locally, stop it before proceeding:
 
+If Ollama is already running locally, stop it before proceeding:
 ```bash
 # Windows (using the PID from netstat)
 taskkill /PID <PID> /F
@@ -60,12 +107,15 @@ taskkill /PID <PID> /F
 pkill ollama
 ```
 
-### 3. Build and Start the Docker Containers
+### 3. Build and Start the Docker Application
+Go to the db_path.py file, uncomment the "return 'cloud/database.db'" and comment "return db_path" because one is used for the cloud deployment and the other for a local run
 ```bash
+cd cloud
 docker-compose up --build
 ```
 
 ### 4. Initialize the Database
+DO ONLY THIS IF YOU DONT ALREADY HAVE THE database.db FILE
 In a new terminal, while the Docker containers are running:
 ```bash
 docker-compose exec web python init_db.py
@@ -73,212 +123,83 @@ docker-compose exec web python init_db.py
 
 ### 5. Download the LLM Model
 In a new terminal, while the Docker containers are running:
-``` bash
-docker exec -it poc-dockerized-ollama-1 ollama pull llama3.2
+```bash
+docker exec -it cloud-ollama-1 ollama pull llama3.2
+docker exec -it cloud-ollama-1 ollama pull gemma2
 ```
 
 This will download the Llama 3.2 model (approximately 4-5 GB). The download may take 5-20 minutes depending on your internet connection.
 
 ### 6. Access the Application
 Once everything is set up, access the application at:
-```bash
+```
 http://localhost:5000
 ```
 
 ## Usage
+
 ### Generate a New Universe
-- Navigate to the main page at http://localhost:5000
-- Enter a prompt describing the universe you want to create (e.g., "Create a cyberpunk universe with magic elements")
-- Click "Submit" and wait for the LLM to generate your universe
-- Once generation is complete, click "Parse and Save" to store it in the database
+1. Navigate to the main page at http://localhost:5000
+2. Enter a prompt describing the universe you want to create (e.g., "Create a cyberpunk universe with magic elements")
+3. Click "Submit" and wait for the LLM to generate your universe
+4. Once generation is complete, click "Parse and Save" to store it in the database
+
+### Query Your Universe with RAG
+1. Click on "RAG Query" in the navigation
+2. Select the universe you want to query
+3. Ask questions in natural language about your universe
+4. The system will search through all universe elements and provide relevant answers
 
 ### Browse Generated Content
-- Click on "Wiki Browser" in the navigation
-- View and explore all your created universes and their components
+1. Click on "Wiki Browser" in the navigation
+2. View and explore all your created universes and their components
+3. Navigate through different tables (factions, locations, cultures, characters, objects)
 
-## Documentation Tools
+### LLM Core Development
+For working with the LLM training framework:
 
-### Database Documentation
-The project includes several tools for documenting and analyzing the database:
-
-#### 1. Generate Database Diagram
-Create a visual representation of the database schema:
 ```bash
-docker-compose exec web python generate_db_diagram.py
-```
-This generates:
-- A Mermaid ER diagram
-- A flow diagram showing table relationships
-- Detailed table documentation
-- JSON schema export
+cd llm_core
+pip install -r requirements.txt
 
-#### 2. Database Statistics
-Generate comprehensive reports about your database:
-```bash
-docker-compose exec web python db_stats.py
-```
-This provides:
-- Record counts per table
-- Universe details with element counts
-- Recent activity logs
-- File size information
-
-#### 3. Detailed Wiki Documentation
-For complete database documentation, see:
-- `WIKI.md` - Comprehensive database schema documentation
-- `database_diagram.md` - Auto-generated diagrams (after running generate_db_diagram.py)
-- `database_report.md` - Auto-generated statistics (after running db_stats.py)
-
-## Wiki - Database Schema Documentation
-
-### Overview
-The application uses a SQLite database to store all generated fictional universe content. The database is designed with a hierarchical structure where each universe contains multiple related entities.
-
-### Database Schema
-
-#### 1. Table: `univers`
-The main table that stores the core universe information.
-
-```sql
-CREATE TABLE univers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    description TEXT,
-    created_at TIMESTAMP
-);
+# Start MLflow for experiment tracking
+cd mlflow_root
+mlflow ui
 ```
 
-**Fields:**
-- `id`: Unique identifier for the universe (auto-increment)
-- `name`: Name of the fictional universe
-- `description`: Detailed description of the universe
-- `created_at`: Timestamp when the universe was created
+## Advanced Features
 
-#### 2. Table: `faction`
-Stores factions within each universe.
+### RAG (Retrieval-Augmented Generation)
+The RAG system allows you to:
+- Query your universe database using natural language
+- Get semantic search results across all universe elements
+- Generate SQL queries for database updates
+- Maintain conversation context for complex queries
 
-```sql
-CREATE TABLE faction (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    description TEXT,
-    univers_id INTEGER,
-    created_at TIMESTAMP
-);
-```
+### Semantic Search
+- Uses sentence transformers for embedding generation
+- FAISS index for fast similarity search
+- Configurable similarity thresholds
+- Caching for improved performance
 
-**Fields:**
-- `id`: Unique identifier for the faction (auto-increment)
-- `name`: Name of the faction
-- `description`: Detailed description of the faction
-- `univers_id`: Foreign key reference to the parent universe
-- `created_at`: Timestamp when the faction was created
+### Database Management
+- Automatic parsing of LLM responses into structured data
+- Foreign key relationships between universe elements
+- Timestamp tracking for all entries
+- Backup and maintenance utilities
 
-#### 3. Table: `location`
-Stores locations within each universe.
+## Database Schema
 
-```sql
-CREATE TABLE location (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    description TEXT,
-    univers_id INTEGER,
-    created_at TIMESTAMP
-);
-```
+### Core Tables
+- **univers**: Main universe information
+- **faction**: Factions within universes
+- **location**: Locations within universes
+- **culture**: Cultures within universes
+- **personnages**: Characters within universes
+- **objets**: Objects/items within universes
+- **prompt_answers**: Conversation history
 
-**Fields:**
-- `id`: Unique identifier for the location (auto-increment)
-- `name`: Name of the location
-- `description`: Detailed description of the location
-- `univers_id`: Foreign key reference to the parent universe
-- `created_at`: Timestamp when the location was created
-
-#### 4. Table: `culture`
-Stores cultures within each universe.
-
-```sql
-CREATE TABLE culture (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    description TEXT,
-    univers_id INTEGER,
-    created_at TIMESTAMP
-);
-```
-
-**Fields:**
-- `id`: Unique identifier for the culture (auto-increment)
-- `name`: Name of the culture
-- `description`: Detailed description of the culture
-- `univers_id`: Foreign key reference to the parent universe
-- `created_at`: Timestamp when the culture was created
-
-#### 5. Table: `personnages`
-Stores characters within each universe.
-
-```sql
-CREATE TABLE personnages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    description TEXT NOT NULL,
-    univers_id INTEGER,
-    created_at TIMESTAMP,
-    FOREIGN KEY (univers_id) REFERENCES univers (id)
-);
-```
-
-**Fields:**
-- `id`: Unique identifier for the character (auto-increment)
-- `name`: Name of the character (required)
-- `description`: Detailed description of the character (required)
-- `univers_id`: Foreign key reference to the parent universe
-- `created_at`: Timestamp when the character was created
-
-#### 6. Table: `objets`
-Stores objects/items within each universe.
-
-```sql
-CREATE TABLE objets (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    description TEXT NOT NULL,
-    univers_id INTEGER,
-    created_at TIMESTAMP,
-    FOREIGN KEY (univers_id) REFERENCES univers (id)
-);
-```
-
-**Fields:**
-- `id`: Unique identifier for the object (auto-increment)
-- `name`: Name of the object (required)
-- `description`: Detailed description of the object (required)
-- `univers_id`: Foreign key reference to the parent universe
-- `created_at`: Timestamp when the object was created
-
-#### 7. Table: `prompt_answers`
-Stores the interaction history between users and the LLM.
-
-```sql
-CREATE TABLE prompt_answers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    prompt TEXT NOT NULL,
-    response TEXT NOT NULL,
-    univers_id INTEGER,
-    created_at TIMESTAMP,
-    FOREIGN KEY (univers_id) REFERENCES univers (id)
-);
-```
-
-**Fields:**
-- `id`: Unique identifier for the prompt-answer pair (auto-increment)
-- `prompt`: The user's original prompt (required)
-- `response`: The LLM's response (required)
-- `univers_id`: Foreign key reference to the related universe (optional)
-- `created_at`: Timestamp when the interaction occurred
-
-### Database Relationships
-
+### Relationships
 ```
 univers (1) ←→ (N) faction
 univers (1) ←→ (N) location
@@ -288,35 +209,71 @@ univers (1) ←→ (N) objets
 univers (1) ←→ (N) prompt_answers
 ```
 
-**Key Points:**
-- Each universe can have multiple factions, locations, cultures, characters, and objects
-- All child entities are linked to their parent universe via the `univers_id` foreign key
-- The `prompt_answers` table stores the conversation history and can be optionally linked to a specific universe
-- All tables include timestamps for tracking creation dates
+## Development
 
-### Database Management
-
-#### Initialization
-The database is automatically initialized when running:
+### Cloud Application Development
 ```bash
-docker-compose exec web python init_db.py
+cd cloud
+# For local development without Docker
+pip install -r requirements.txt
+python app/app.py
 ```
 
-#### Database Location
-The SQLite database file is located at:
-```
-poc-dockerized/database.db
+### LLM Core Development
+```bash
+cd llm_core
+pip install -r requirements.txt
+
+# Run training experiments
+python src/training/train.py
+
+# Start MLflow UI
+cd mlflow_root
+mlflow ui
 ```
 
-#### Backup and Maintenance
-- The database file is included in the Docker volume mounts
-- Regular backups are recommended for production use
-- The database can be reset by deleting the `database.db` file and re-running the initialization script
+### Adding New Models
+1. Create a new model implementation in `llm_core/src/models/`
+2. Update the training configuration in `llm_core/src/training/config/`
+3. Add model-specific requirements to `llm_core/requirements.txt`
 
-### Data Flow
-1. User submits a prompt through the web interface
-2. The LLM generates content based on the prompt
-3. The application parses the LLM response and extracts structured data
-4. Data is stored in the appropriate tables with proper foreign key relationships
-5. Users can browse and explore the generated content through the Wiki interface
+## Deployment
+
+### Cloud Deployment
+The project includes Google Cloud Build configuration:
+```bash
+cd cloud
+# Deploy to Google Cloud Run
+gcloud builds submit --config cloudbuild.yaml
+```
+
+### Local Production
+```bash
+cd cloud
+docker-compose -f docker-compose.prod.yml up --build
+```
+
+## Troubleshooting
+
+### Common Issues
+1. **Port conflicts**: Ensure ports 5000 and 11434 are available
+2. **Memory issues**: Increase Docker memory allocation for LLM models
+3. **GPU access**: Ensure NVIDIA Docker runtime is installed for GPU acceleration
+4. **Database errors**: Run `python drop_tables.py` followed by `python init_db.py` to reset
+
+### Performance Optimization
+- Use GPU acceleration when available
+- Adjust similarity thresholds in RAG configuration
+- Monitor memory usage during large universe generation
+- Use caching for frequently accessed data
+
+## Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+This project is licensed under the MIT License - see the LICENSE file for details.
 

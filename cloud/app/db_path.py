@@ -13,5 +13,5 @@ def get_db_path():
     
     print(f"Using database at: {db_path}")
 
-    # return 'poc-dockerized/database.db'
-    return db_path
+    return 'cloud/database.db'
+    # return db_path
