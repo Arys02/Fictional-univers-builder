@@ -1,16 +1,13 @@
 import numpy as np
 import pandas as pd
 import json
-import pickle
-import os
-from pathlib import Path
+import re
 
 import sqlite3
 from db_path import get_db_path
 
 from sentence_transformers import SentenceTransformer
 import faiss
-
 from ollama import chat, ChatResponse
 
 # Cache pour les modèles et index
@@ -18,33 +15,35 @@ _model_cache = {}
 _index_cache = {}
 _data_cache = {}
 
+MODEL_NAME = "gemma2"
+
+def cleaning_llm_response(response_text):
+    response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL).strip()
+    response_text = re.sub(r"^(```sql|sql\s*|```)", "", response_text.strip(), flags=re.IGNORECASE)
+    response_text = response_text.replace("```", "").strip()
+    response_text = response_text.replace("\\", "").strip()
+    return response_text
+
 def get_cached_model(model_name="all-MiniLM-L6-v2"):
-    """Récupère ou charge le modèle d'embedding avec cache"""
     if model_name not in _model_cache:
-        print(f"Chargement du modèle {model_name}...")
         _model_cache[model_name] = SentenceTransformer(model_name)
     return _model_cache[model_name]
 
 def get_cache_key(univers_id, model_name="all-MiniLM-L6-v2"):
-    """Génère une clé de cache unique"""
     return f"{model_name}_{univers_id}"
 
 def get_cached_data(univers_id, model_name="all-MiniLM-L6-v2"):
-    """Récupère les données avec cache"""
     cache_key = get_cache_key(univers_id, model_name)
     
     if cache_key not in _data_cache:
-        print(f"Chargement des données pour l'univers {univers_id}...")
         _data_cache[cache_key] = get_text_chunks_from_db(get_db_path(), univers_id)
     
     return _data_cache[cache_key]
 
 def get_cached_index(univers_id, model_name="all-MiniLM-L6-v2"):
-    """Récupère l'index FAISS avec cache"""
     cache_key = get_cache_key(univers_id, model_name)
     
     if cache_key not in _index_cache:
-        print(f"Création de l'index pour l'univers {univers_id}...")
         model = get_cached_model(model_name)
         df = get_cached_data(univers_id, model_name)
         _index_cache[cache_key] = create_faiss_index(df, model)
@@ -52,21 +51,17 @@ def get_cached_index(univers_id, model_name="all-MiniLM-L6-v2"):
     return _index_cache[cache_key]
 
 def clear_cache(univers_id=None):
-    """Nettoie le cache pour un univers spécifique ou tout le cache"""
     global _data_cache, _index_cache
     
     if univers_id is None:
         _data_cache.clear()
         _index_cache.clear()
-        print("Cache complètement vidé")
     else:
-        # Supprimer les entrées pour cet univers
         keys_to_remove = [k for k in _data_cache.keys() if str(univers_id) in k]
         for key in keys_to_remove:
             del _data_cache[key]
             if key in _index_cache:
                 del _index_cache[key]
-        print(f"Cache vidé pour l'univers {univers_id}")
 
 def get_all_table_schemas(db_path):
     conn = sqlite3.connect(db_path)
@@ -88,19 +83,6 @@ def get_all_table_schemas(db_path):
     conn.close()
     return schemas
 
-#%%
-def extract_textual_columns(df):
-    textual_cols = df.select_dtypes(include=["object"]).columns
-
-    def row_to_labeled_text(row):
-        parts = []
-        for col in textual_cols:
-            val = row[col]
-            if pd.notnull(val) and str(val).strip():
-                parts.append(f"{col}: {val}")
-        return "\n".join(parts)
-
-    return df.apply(row_to_labeled_text, axis=1)
 
 # Loop sur chaque table pour concat chaque colonnes textuelles et n'avoir qu'une colonne text
 def get_text_chunks_from_db(db_path, univers_id):
@@ -134,7 +116,7 @@ def get_text_chunks_from_db(db_path, univers_id):
                 df["uid"] = df["univers_id"]
 
             # Amélioration de l'extraction de texte
-            df["text"] = extract_textual_columns_improved(df, table)
+            df["text"] = extract_textual_columns(df, table)
             df["source_table"] = table
 
             all_chunks.append(df[["id", "text", "source_table", "uid"]])
@@ -151,14 +133,12 @@ def get_text_chunks_from_db(db_path, univers_id):
         # Retourner un DataFrame vide avec les bonnes colonnes
         return pd.DataFrame(columns=["id", "text", "source_table", "uid"])
 
-def extract_textual_columns_improved(df, table_name):
-    """Extraction améliorée des colonnes textuelles avec contexte"""
+def extract_textual_columns(df, table_name):
     textual_cols = df.select_dtypes(include=["object"]).columns
 
     def row_to_labeled_text(row):
         parts = []
         
-        # Ajouter le nom de la table comme contexte
         parts.append(f"Type: {table_name.upper()}")
         
         for col in textual_cols:
@@ -196,7 +176,6 @@ def search(question, df, model, index, k=3):
     return results
 
 def rag_answer(question, univers_id, k=5):
-    """Répond à une question en utilisant RAG avec cache optimisé"""
     try:
         # Utiliser le cache pour les modèles et données
         model = get_cached_model()
@@ -221,7 +200,6 @@ def rag_answer(question, univers_id, k=5):
         
         context = "\n\n---\n\n".join(context_parts)
         
-        # Prompt amélioré
         prompt = f"""Tu es un assistant spécialisé dans les univers de fiction et de jeu de rôle (D&D). 
         
         Voici des extraits de documentation sur l'univers :
@@ -239,18 +217,18 @@ def rag_answer(question, univers_id, k=5):
         """
 
         response: ChatResponse = chat(
-            model="llama3.2",
+            model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}]
         )
+        response_text = cleaning_llm_response(response.message.content)
         
-        return response.message.content
+        return response_text
         
     except Exception as e:
         print(f"Erreur dans rag_answer: {str(e)}")
         return f"Une erreur s'est produite lors de la recherche : {str(e)}"
 
 def search_with_scores(question, df, model, index, k=5):
-    """Recherche avec scores de similarité"""
     query_embedding = model.encode(question)
     D, I = index.search(np.array([query_embedding]), k)
     
@@ -279,8 +257,11 @@ def rag_update_db(request, univers_id):
         "{request}"
 
         Écris uniquement le script SQL nécessaire pour mettre à jour la base en fonction de la requête.
+        - Écris uniquement le script SQL nécessaire pour mettre à jour la base
         - N'écris **aucun commentaire**, **aucune explication**.
         - Si une jointure ou une vérification est nécessaire, fais-le.
+        - ATTENTION: Si tu inclus des guillemets simples (apostrophes) dans le texte, tu DOIS les échapper en les doublant
+        - Exemple: "d'érudits" devient "d''érudits" dans le SQL
         - Utilise l'univers_id ou l'id (si tu te trouves dans la table univers) suivant pour lier les données : {univers_id}
 
         Le script SQL doit **impérativement utiliser l'univers_id ou l'id de la table univers "{univers_id}"** afin de ne modifier que les données de l'univers concerné.
@@ -290,12 +271,12 @@ def rag_update_db(request, univers_id):
         Exemple :
         Si la requête est "Ajoute moi la faction Le Clan de l'Eau avec une description", alors le SQL généré doit être :
 
-        INSERT INTO faction (name, description, univers_id) VALUES ('Le Clan de l'Eau', 'Les elfes démoniaques du Clan de L'Eau sont connus pour leur agressivité et leur passion pour le thrash metal. Ils sont réputés pour leurs concerts de plus de 2 heures d'heureux vacarme.', 2);
+        INSERT INTO faction (name, description, univers_id) VALUES ('Le Clan de l''Eau', 'Les elfes démoniaques du Clan de L''Eau sont connus pour leur agressivité et leur passion pour le thrash metal. Ils sont réputés pour leurs concerts de plus de 2 heures d''heureux vacarme.', 2);
         
         Second Exemple :
         Si la requête est "Je viens de passer dans la Forêt Trolonne et elle a brûlée", alors c'est du contexte à rajouter à la description de la location, le SQL généré doit être :
 
-        UPDATE location SET description = 'un immense forestier où les trolls vivent dans leurs huttes de pierre et de bois. Elle a aujourd'hui brûlée' WHERE name = 'Forêt Trolonne' AND univers_id = 2;
+        UPDATE location SET description = 'un immense forestier où les trolls vivent dans leurs huttes de pierre et de bois. Elle a aujourd''hui brûlée' WHERE name = 'Forêt Trolonne' AND univers_id = 2;
         
         Troisième exemple :
         Si la requête est "Met à jour le nom de l'univers en "Magika"", alors le SQL généré doit être :
@@ -304,28 +285,22 @@ def rag_update_db(request, univers_id):
         """
 
         response: ChatResponse = chat(
-            model="llama3.2",
+            model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}]
         )
 
-        clean_response = response.message.content.strip()
+        clean_response = cleaning_llm_response(response.message.content)
 
-        sql_syntax_valid = is_sql_syntax_valid(clean_response, get_db_path())
+        # vérif afin de s'assurer que le script SQL est valide
+        sql_syntax_valid, error = is_sql_syntax_valid(clean_response, get_db_path())
         sql_content_valid = check_sql_content(clean_response, request)
-
-        
         univers_id_valid = "univers_id" in clean_response.lower() or "id" in clean_response.lower()
-
-        print(clean_response)
-
-        print(sql_syntax_valid, sql_content_valid, univers_id_valid)
 
         if sql_syntax_valid and sql_content_valid and univers_id_valid:
             is_syntax_valid = True
 
         count += 1
         if count > 10:
-            print(clean_response)
             raise Exception(f"Erreur dans la génération du script SQL, le script SQL généré est : {clean_response}")
 
     return clean_response
@@ -347,15 +322,15 @@ def check_sql_content(script_sql, request):
     {script_sql}
     """
         response: ChatResponse = chat(
-            model="llama3.2",
+            model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}])
         
-        print(response.message.content.strip())
+        clean_response = cleaning_llm_response(response.message.content)
         
-        if response.message.content.strip() in ["True", "False"]:
+        if clean_response in ["True", "False"]:
             is_syntax_valid = True
 
-    return response.message.content.strip()
+    return clean_response
 
 def is_sql_syntax_valid(sql, db_path):
     try:
@@ -364,45 +339,43 @@ def is_sql_syntax_valid(sql, db_path):
         cursor.execute("BEGIN") 
         cursor.execute(sql)
         conn.rollback()
-        return True
-    except sqlite3.Error:
-        return False
+        return True, None
+    except sqlite3.Error as e:
+        return False, e
     finally:
         conn.close()
 
 def pretty_sql(script_sql):
     prompt = f"""
-Tu es un assistant non technique, ton rôle est d'aider un utilisateur à comprendre les changements apportés par une requête SQL. L'application est un outil de création et d'interaction avec un monde de jeu de rôle, du type Dungeons & Dragons.
-Fais en sorte de parler comme un Dungeon Master de Dungeons & Dragons et immerse toi dans l'univers.
-Donne des réponses courtes, pas besoin de rentrer dans les détails techniques du SQL.
+        Tu es un assistant non technique, ton rôle est d'aider un utilisateur à comprendre les changements apportés par une requête SQL. L'application est un outil de création et d'interaction avec un monde de jeu de rôle, du type Dungeons & Dragons.
+        Fais en sorte de parler comme un Dungeon Master de Dungeons & Dragons et immerse toi dans l'univers.
+        Donne des réponses courtes, pas besoin de rentrer dans les détails techniques du SQL.
 
-Voici une requête SQL :
-{script_sql}
-"""
+        Voici une requête SQL :
+        {script_sql}
+    """
     response: ChatResponse = chat(
-        model="llama3.2",
+        model=MODEL_NAME,
         messages=[{"role": "user", "content": prompt}]
     )
-    return response.message.content.strip()
+    return cleaning_llm_response(response.message.content)
 
 if __name__ == "__main__":
-    # model = SentenceTransformer("all-MiniLM-L6-v2")
-    # db_path = 'database.db'
-    # concat_df = get_text_chunks_from_db(db_path, 2)
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    db_path = 'database.db'
+    concat_df = get_text_chunks_from_db(db_path, 2)
 
-    # index = create_faiss_index(concat_df, model)
+    index = create_faiss_index(concat_df, model)
 
-    # question = "Quelles sont les factions présentes dans l'univers ?"
-    # question = "Rajoute moi la faction des Singes Géants, rajoute y une description"
-    # # results = search(question, concat_df, model, index)
+    question = "Quelles sont les factions présentes dans l'univers ?"
+    question = "Rajoute moi la faction des Singes Géants, rajoute y une description"
+    # results = search(question, concat_df, model, index)
 
-    # # print(rag_answer(question, 2))
-    # script = rag_update_db(question, 3)
-    # conn = sqlite3.connect('database.db')
-    # cursor = conn.cursor()
-    # cursor.execute(script)
-    # conn.commit()
-    # conn.close()
-
-    print(get_all_table_schemas('poc-dockerized/database.db'))
+    # print(rag_answer(question, 2))
+    script = rag_update_db(question, 3)
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute(script)
+    conn.commit()
+    conn.close()
 

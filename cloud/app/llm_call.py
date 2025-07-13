@@ -3,16 +3,18 @@ from ollama import ChatResponse, Client
 import sqlite3
 import os 
 from datetime import datetime
+import requests
 from db_path import get_db_path
 
 # Configuration du client Ollama avec l'hôte du conteneur Docker
 OLLAMA_HOST = os.environ.get('OLLAMA_HOST', 'http://localhost:11434')
 ollama_client = Client(host=OLLAMA_HOST)
 DB_PATH = os.environ.get('DB_PATH', 'database.db')
+MODEL = "llama3.2"
 
-# Redéfinition de la fonction chat pour utiliser notre client configuré
 def chat(*args, **kwargs):
-    return ollama_client.chat(*args, **kwargs)
+    temp_client = Client(host=OLLAMA_HOST, timeout=600)
+    return temp_client.chat(*args, **kwargs)
 
 
 def insert_univers(univers, conn=None):
@@ -24,7 +26,6 @@ def insert_univers(univers, conn=None):
             {"name": "Nom de l'univers", "description": "Texte..."},
             ...
         ]
-    :param db_path: chemin vers le fichier .db
     """
     close_conn = False
     if conn is None:
@@ -199,7 +200,7 @@ def is_valid_json(text):
         return False
 
 
-def ask_faction_extraction(response_content):
+def ask_faction_extraction(response_content, model=None):
     system_prompt = """Tu es un expert en extraction de données structurées à partir de réponses de modèles de langage.
         Tu dois extraire les factions d'un univers fictif. 
         Tu dois fournir le nom des factions, et pour chacune une brève description, à partir des informations fournies dans le texte.
@@ -211,11 +212,11 @@ def ask_faction_extraction(response_content):
           }
         ]
         Si tu n’en trouves pas, retourne simplement []. Pas d'explication, pas de texte, seulement du JSON."""
-
+    current_model = model or MODEL
     user_prompt = f"Extrait les factions de la réponse suivante :\n\n{response_content}"
 
     response: ChatResponse = chat(
-        model="llama3.2",
+        model=current_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -231,7 +232,6 @@ def ask_faction_extraction(response_content):
 
     content = response.message.content.strip()
 
-    # Validation du JSON
     if is_valid_json(content):
         return json.loads(content)
     else:
@@ -253,7 +253,7 @@ def ask_faction_extraction(response_content):
                 """
 
             retry_response: ChatResponse = chat(
-                model="llama3.2",
+                model=current_model,
                 messages=[
                     {
                         "role": "system",
@@ -274,7 +274,7 @@ def ask_faction_extraction(response_content):
                 return json.loads(retry_content)
 
 
-def ask_location_extraction(response_content):
+def ask_location_extraction(response_content, model=None):
     system_prompt = """
         Tu es un expert en extraction de lieux géographiques à partir de textes de fiction. 
         Ton objectif est d'extraire UNIQUEMENT les lieux physiques ou géographiques (régions, villes, forêts, montagnes, déserts, marais, péninsules, etc.).
@@ -292,11 +292,11 @@ def ask_location_extraction(response_content):
     
         Si aucun lieu n’est trouvé, retourne simplement []. Aucune explication. Seulement du JSON.
         """
-
+    current_model = model or MODEL
     user_prompt = f"Extrait les lieux géographiques de la réponse suivante :\n\n{response_content}"
 
     response: ChatResponse = chat(
-        model="llama3.2",
+        model=current_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -311,8 +311,7 @@ def ask_location_extraction(response_content):
     )
 
     content = response.message.content.strip()
-    # print("Réponse brute de l'LLM pour les lieux :", content)
-    # Validation du JSON
+
     if is_valid_json(content):
         return json.loads(content)
     else:
@@ -334,7 +333,7 @@ def ask_location_extraction(response_content):
                 """
 
             retry_response: ChatResponse = chat(
-                model="llama3.2",
+                model=current_model,
                 messages=[
                     {
                         "role": "system",
@@ -355,7 +354,7 @@ def ask_location_extraction(response_content):
                 return json.loads(retry_content)
 
 
-def ask_univers_extraction(response_content):
+def ask_univers_extraction(response_content, model=None):
     system_prompt = """Tu es un expert en extraction de données structurées à partir de réponses de modèles de langage.
         Tu dois extraire le nom de l'univers dont il est question dans le texte. 
         Récoltes des informations globales sur cet univers et fait un résumé court et synthétique le concernant.
@@ -369,10 +368,11 @@ def ask_univers_extraction(response_content):
         ]
         Si tu n’en trouves pas, retourne simplement []. Pas d'explication, pas de texte, seulement du JSON."""
 
+    current_model = model or MODEL
     user_prompt = f"Extrait les factions de la réponse suivante :\n\n{response_content}"
 
     response: ChatResponse = chat(
-        model="llama3.2",
+        model=current_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -387,8 +387,7 @@ def ask_univers_extraction(response_content):
     )
 
     content = response.message.content.strip()
-    # print("Réponse brute de l'LLM pour l'univers :", content)
-    # Validation du JSON
+
     if is_valid_json(content):
         return json.loads(content)
     else:
@@ -410,7 +409,7 @@ def ask_univers_extraction(response_content):
                 """
 
             retry_response: ChatResponse = chat(
-                model="llama3.2",
+                model=current_model,
                 messages=[
                     {
                         "role": "system",
@@ -431,7 +430,7 @@ def ask_univers_extraction(response_content):
                 return json.loads(retry_content)
 
 
-def ask_culture_extraction(response_content):
+def ask_culture_extraction(response_content, model=None):
     system_prompt = """Tu es un expert en extraction de données structurées à partir de réponses de modèles de langage.
         Tu dois extraire les cultures d'un univers fictif. 
         Des exemples de cultures seraient les religions, les philosophies, les modes de vie, les traditions, etc.
@@ -446,10 +445,11 @@ def ask_culture_extraction(response_content):
         ]
         Si tu n’en trouves pas, retourne simplement []. Pas d'explication, pas de texte, seulement du JSON."""
 
+    current_model = model or MODEL
     user_prompt = f"Extrait les cultures de la réponse suivante :\n\n{response_content}"
 
     response: ChatResponse = chat(
-        model="llama3.2",
+        model=current_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -465,7 +465,6 @@ def ask_culture_extraction(response_content):
 
     content = response.message.content.strip()
 
-    # Validation du JSON
     if is_valid_json(content):
         return json.loads(content)
     else:
@@ -487,7 +486,7 @@ def ask_culture_extraction(response_content):
                 """
 
             retry_response: ChatResponse = chat(
-                model="llama3.2",
+                model=current_model,
                 messages=[
                     {
                         "role": "system",
@@ -538,7 +537,7 @@ def insert_prompt_answer(prompt, response, univers_id=None, conn=None):
             conn.close()
 
 
-def ask_objets_extraction(response_content):
+def ask_objets_extraction(response_content, model=None):
     system_prompt = """Tu es un expert en extraction de données structurées à partir de réponses de modèles de langage.
         Tu dois extraire les objets importants d'un univers fictif. 
         Des exemples d'objets seraient par exemple des armes, des artefacts, des objets magiques, des reliques, etc.
@@ -552,10 +551,11 @@ def ask_objets_extraction(response_content):
         ]
         Si tu n’en trouves pas, retourne simplement []. Pas d'explication, pas de texte, seulement du JSON."""
 
+    current_model = model or MODEL
     user_prompt = f"Extrait les objets de la réponse suivante :\n\n{response_content}"
 
     response: ChatResponse = chat(
-        model="llama3.2",
+        model=current_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -571,7 +571,7 @@ def ask_objets_extraction(response_content):
 
     content = response.message.content.strip()
 
-    # Validation du JSON
+    
     if is_valid_json(content):
         return json.loads(content)
     else:
@@ -593,7 +593,7 @@ def ask_objets_extraction(response_content):
                 """
 
             retry_response: ChatResponse = chat(
-                model="llama3.2",
+                model=current_model,
                 messages=[
                     {
                         "role": "system",
@@ -654,7 +654,7 @@ def insert_objets(objets, univers_id=None, conn=None):
             conn.close()
 
 
-def ask_personnages_extraction(response_content):
+def ask_personnages_extraction(response_content, model=None):
     system_prompt = """Tu es un expert en extraction de données structurées à partir de réponses de modèles de langage.
         Tu dois extraire les personnages importants d'un univers fictif. 
         Des exemples de personnages seraient par exemple des héros, des méchants, des figures historiques, etc.
@@ -668,10 +668,11 @@ def ask_personnages_extraction(response_content):
         ]
         Si tu n’en trouves pas, retourne simplement []. Pas d'explication, pas de texte, seulement du JSON."""
 
+    current_model = model or MODEL
     user_prompt = f"Extrait les objets de la réponse suivante :\n\n{response_content}"
 
     response: ChatResponse = chat(
-        model="llama3.2",
+        model=current_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -687,7 +688,6 @@ def ask_personnages_extraction(response_content):
 
     content = response.message.content.strip()
 
-    # Validation du JSON
     if is_valid_json(content):
         return json.loads(content)
     else:
@@ -709,7 +709,7 @@ def ask_personnages_extraction(response_content):
                 """
 
             retry_response: ChatResponse = chat(
-                model="llama3.2",
+                model=current_model,
                 messages=[
                     {
                         "role": "system",
@@ -768,3 +768,53 @@ def insert_personnages(personnages, univers_id=None, conn=None):
     finally:
         if close_conn:
             conn.close()
+
+
+def call_custom_llm(prompt, custom_llm_url=None):
+    """
+    Appelle le LLM custom sur le serveur MLFlow.
+    
+    :param prompt: Le texte à envoyer au LLM
+    :param custom_llm_url: L'URL du serveur LLM custom (optionnel, utilise la variable d'environnement par défaut)
+    :return: La réponse du LLM
+    """
+    if custom_llm_url is None:
+        custom_llm_url = os.environ.get('CUSTOM_LLM_URL')
+    
+    if not custom_llm_url.endswith('/'):
+        custom_llm_url += '/'
+    endpoint_url = custom_llm_url + 'llm'
+    
+    try:
+        data = {
+            "prompt": prompt,
+            "version": 8,
+            "model": "gpt2"
+        }
+        
+        response = requests.post(
+            endpoint_url,
+            json=data,
+            headers={"Content-Type": "application/json"},
+            timeout=300  # Timeout de 5 minutes
+        )
+        
+        response.raise_for_status()
+        
+        result = response.json()
+        
+        if isinstance(result, dict):
+            response_text = result.get('answers', result.get('response', result.get('text', result.get('output', str(result)))))
+        else:
+            response_text = str(result)
+            
+        return response_text
+        
+    except requests.exceptions.Timeout:
+        raise Exception("Timeout: Le serveur LLM custom n'a pas répondu dans les temps")
+    except requests.exceptions.ConnectionError:
+        raise Exception(f"Erreur de connexion: Impossible de joindre le serveur LLM à {endpoint_url}")
+    except requests.exceptions.HTTPError as e:
+        raise Exception(f"Erreur HTTP {response.status_code}: {e}")
+    except Exception as e:
+        raise Exception(f"Erreur lors de l'appel au LLM custom: {str(e)}")
