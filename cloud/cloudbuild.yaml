@@ -6,13 +6,13 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/web:${_TAG}']
   
-  # 2. Créer le bucket Cloud Storage pour la base de données (si nécessaire)
+  # # 2. Créer le bucket Cloud Storage pour la base de données (si nécessaire)
   # - name: 'gcr.io/cloud-builders/gcloud'
   #   args: ['storage', 'buckets', 'create', 'gs://${PROJECT_ID}-database', '--location=${_REGION}', '--uniform-bucket-level-access', '--public-access-prevention']
   #   id: 'create-bucket'
   #   allowFailure: true
   
-  # 3. Copier la base de données dans le bucket
+  # # 3. Copier la base de données dans le bucket
   # - name: 'gcr.io/cloud-builders/gsutil'
   #   args: ['cp', 'database.db', 'gs://${PROJECT_ID}-database/']
   #   allowFailure: true
@@ -31,7 +31,7 @@ steps:
       - '--cpu=8'
       - '--min-instances=0'
       - '--max-instances=4'
-      - '--set-env-vars=DB_PATH=/tmp/database.db,OLLAMA_HOST=http://146.148.30.187:11434,CUSTOM_LLM_URL=${_CUSTOM_LLM_URL}'
+      - '--set-env-vars=DB_PATH=/tmp/database.db,OLLAMA_HOST=http://34.77.137.161:11434,CUSTOM_LLM_URL=${_CUSTOM_LLM_URL}'
       - '--set-cloudsql-instances=${PROJECT_ID}:${_REGION}:fictional-universe-sql'
       - '--add-volume=name=db-volume,type=cloud-storage,bucket=${PROJECT_ID}-database'
       - '--add-volume-mount=volume=db-volume,mount-path=/tmp'
